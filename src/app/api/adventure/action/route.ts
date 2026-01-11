@@ -78,41 +78,28 @@ PENTING: Selalu tetap sebagai narator petualangan. Jangan pernah memecahkan dind
 - プレイヤーの行動が理にかなっていない場合、結果を説明するか、代替案を提案する
 - 戦闘、探索、相互作用、パズルを適切な説明で扱う
 
-重要：常にアドベンチャーナレーターとしてキャラクターを保ってください。第四の壁を壊したり、AIであることに言及したりしないでください。彼らの行動に基づいて物語を自然に続けてください。`,
+重要：常にアドベンチャーナレーターとしてキャラクターを保ってください。第四の壁を壊したり、AIであることに言言及したりしないでください。彼らの行動に基づいて物語を自然に続けてください。`,
   },
 };
 
-// Generate image using Together AI (FLUX Schnell - FREE)
-async function generateImageWithTogetherAI(prompt: string, togetherApiKey: string): Promise<string | null> {
+// Generate image using Pollinations.ai (Truly FREE, no keys needed)
+async function generateImageWithPollinations(prompt: string): Promise<string | null> {
   try {
-    const response = await fetch('https://api.together.xyz/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${togetherApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'black-forest-labs/FLUX.1-schnell-Free',
-        prompt: prompt,
-        width: 1024,
-        height: 1024,
-        steps: 4,
-        n: 1,
-        response_format: 'b64_json',
-      }),
-    });
+    const seed = Math.floor(Math.random() * 1000000);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux`;
+
+    const response = await fetch(imageUrl);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      logger.warn('Together AI API error', { status: response.status, error: errorText });
+      logger.warn('Pollinations AI image fetch failed', { status: response.status });
       return null;
     }
 
-    const data = await response.json();
-    const base64Image = data.data?.[0]?.b64_json;
-    return base64Image || null;
+    const buffer = await response.arrayBuffer();
+    const base64Image = Buffer.from(buffer).toString('base64');
+    return base64Image;
   } catch (error) {
-    logger.warn('Failed to generate image with Together AI', { error });
+    logger.warn('Failed to generate image with Pollinations AI', { error });
     return null;
   }
 }
@@ -129,8 +116,6 @@ export async function POST(request: NextRequest) {
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
     const groqApiKey = process.env.GROQ_API_KEY;
-    const togetherApiKey = process.env.TOGETHER_API_KEY;
-
     if (!groqApiKey) {
       logger.error('GROQ_API_KEY is not configured');
       return NextResponse.json(
@@ -166,8 +151,8 @@ export async function POST(request: NextRequest) {
         max_tokens: 1024,
       }),
 
-      // 2. Generate image with Together AI (if API key available)
-      togetherApiKey ? generateImageWithTogetherAI(imagePrompt, togetherApiKey) : Promise.resolve(null),
+      // 2. Generate image with Pollinations (Truly FREE)
+      generateImageWithPollinations(imagePrompt),
     ]);
 
     // Handle story result
@@ -189,8 +174,8 @@ export async function POST(request: NextRequest) {
         imageUrl = await saveBase64Image(imageResult.value, 'action');
         logger.info('Image saved successfully', { imageUrl });
       } catch (imageError) {
-        logger.warn('Failed to save image, using fallback', { error: imageError });
         imageUrl = `data:image/png;base64,${imageResult.value}`;
+        logger.info('Using data URI for image as disk save failed or was skipped');
       }
     } else {
       logger.warn('Image generation skipped or failed');
