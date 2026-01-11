@@ -1,64 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 
-export const maxDuration = 45; // Increased timeout
+export const maxDuration = 45;
 export const dynamic = 'force-dynamic';
 
+/**
+ * Image Proxy Route
+ * Fetches images from Pollinations.ai and serves them through our domain.
+ * This bypasses ISP/DNS blocks and provides a consistent experience.
+ */
 export async function GET(request: NextRequest) {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const prompt = searchParams.get('prompt');
-    const seed = searchParams.get('seed') || Math.floor(Math.random() * 1000000).toString();
+    const seed = searchParams.get('seed') || '12345';
     const width = searchParams.get('width') || '768';
     const height = searchParams.get('height') || '768';
 
     if (!prompt) {
-        return new NextResponse('Prompt is required', { status: 400 });
+        return new NextResponse('Missing prompt', { status: 400 });
     }
 
     try {
-        // Using simple model for faster generation
-        const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&nologo=true&model=flux`;
+        // Standardized Pollinations URL confirmed to work
+        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&nologo=true`;
 
-        logger.info('Proxying image request', { prompt, seed });
+        logger.info('Proxying image', { prompt, seed, url });
 
-        // Internal fetch with timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 40000);
 
-        const response = await fetch(pollUrl, {
+        const response = await fetch(url, {
             signal: controller.signal,
-            cache: 'no-store'
+            cache: 'no-store',
         });
 
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            throw new Error(`Pollinations API returned ${response.status}`);
+            throw new Error(`Pollinations responded with ${response.status}`);
         }
 
-        const blob = await response.blob();
-        const contentType = blob.type || 'image/jpeg';
-        const buffer = await blob.arrayBuffer();
+        const arrayBuffer = await response.arrayBuffer();
+        const contentType = response.headers.get('Content-Type') || 'image/jpeg';
 
-        return new NextResponse(buffer, {
-            status: 200,
+        return new NextResponse(arrayBuffer, {
             headers: {
                 'Content-Type': contentType,
-                'Cache-Control': 'no-store, max-age=0',
-                'X-Generated-Seed': seed
+                'Cache-Control': 'no-store, must-revalidate',
+                'X-Proxy-Status': 'Success',
             },
         });
-    } catch (error: any) {
-        logger.error('Image proxy failed', { error: error.message, prompt });
+    } catch (err: any) {
+        logger.error('Proxy failure', { error: err.message });
 
-        // Fallback to a nice placeholder instead of a broken image
-        const fallbackUrl = `https://placehold.co/${width}x${height}/0f172a/facc15?text=Vision+Faded+Try+Retry`;
-        const fallbackResponse = await fetch(fallbackUrl);
-        const fallbackBlob = await fallbackResponse.blob();
+        // Final fallback: a nice looking geometric pattern/placeholder
+        // This tells the user something went wrong but doesn't break the UI
+        const fallbackText = "Vision Time-out. Try Refresh.";
+        const fallbackUrl = `https://placehold.co/${width}x${height}/1e293b/facc15?text=${encodeURIComponent(fallbackText)}`;
 
-        return new NextResponse(fallbackBlob, {
-            status: 200,
-            headers: { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' }
-        });
+        try {
+            const fallbackResponse = await fetch(fallbackUrl);
+            const fallbackBlob = await fallbackResponse.blob();
+            return new NextResponse(fallbackBlob, {
+                headers: { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' }
+            });
+        } catch {
+            return new NextResponse('Failed to load image', { status: 500 });
+        }
     }
 }
