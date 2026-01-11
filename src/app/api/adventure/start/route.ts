@@ -86,8 +86,27 @@ export async function POST(request: NextRequest) {
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: lang.system + " Use 1-2 short, punchy paragraphs with double newlines between them. Use vivid descriptions. End with a question or choices." },
-          { role: 'user', content: lang.user },
+          {
+            role: 'system', content: lang.system + ` 
+          CRITICAL: Your first response must be an EPIC PROLOGUE.
+          You must define:
+          1. THE WORLD: A unique name and atmosphere (e.g., The Shattered Realms, The Ashlands).
+          2. THE IDENTITY: Who is the player? (Exiled Prince, Cursed Scholar, Relic Hunter).
+          3. THE TIME: The current era and time of day.
+          4. THE QUEST: A specific ultimate goal and why they are starting here.
+          
+          Use 2-3 short, punchy paragraphs with double newlines. Use vivid, cinematic descriptions.
+          
+          CRITICAL: Also include RPG metadata at the end in this EXACT format:
+          [[RPG:{"hpChange":0,"xpGain":0,"item":null,"actions":["Look around","Check pack","Walk"],"end":null,"day":1,"time":"morning","safe":true,"enemy":null}]]
+          - 'day': 1
+          - 'time': 'morning'
+          - 'safe': true (initial zone is always safe)
+          - 'enemy': null
+          
+          CRITICAL: Provide 'actions' in ${language === 'en' ? 'English' : language === 'id' ? 'Indonesian' : 'Japanese'}.`
+          },
+          { role: 'user', content: lang.user + " Provide the World Origin and Prologue." },
         ],
         temperature: 0.8,
       }),

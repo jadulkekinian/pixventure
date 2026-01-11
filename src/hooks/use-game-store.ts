@@ -34,6 +34,19 @@ const initialState: GameState = {
     isTyping: false,
     isGeneratingImage: false,
     isGameStarted: false,
+    hp: 100,
+    maxHp: 100,
+    xp: 0,
+    inventory: [],
+    suggestedActions: [],
+    isGameOver: false,
+    endingType: null,
+    lastHpChange: null,
+    lastXpGain: null,
+    day: 1,
+    timeOfDay: 'morning',
+    isSafeZone: false,
+    activeEnemy: null,
 };
 
 

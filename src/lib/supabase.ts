@@ -31,6 +31,13 @@ export interface Adventure {
     started_at: string;
     last_played_at: string;
     is_active: boolean;
+    hp?: number;
+    xp?: number;
+    inventory?: string[];
+    day?: number;
+    time_of_day?: string;
+    is_safe_zone?: boolean;
+    active_enemy?: any;
 }
 
 export interface AdventureScene {

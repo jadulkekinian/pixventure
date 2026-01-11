@@ -21,6 +21,27 @@ export interface GameState {
     isTyping: boolean;
     isGeneratingImage: boolean;
     isGameStarted: boolean;
+    // RPG Stats
+    hp: number;
+    maxHp: number;
+    xp: number;
+    inventory: string[];
+    suggestedActions: string[];
+    isGameOver: boolean;
+    endingType: 'win' | 'lose' | null;
+    // Animation/Juice State
+    lastHpChange: number | null;
+    lastXpGain: number | null;
+    // Chronosphere State
+    day: number;
+    timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
+    // Safe Zone & Combat State
+    isSafeZone: boolean;
+    activeEnemy: {
+        name: string;
+        hp: number;
+        maxHp: number;
+    } | null;
 }
 
 
@@ -31,6 +52,20 @@ export interface AdventureAPIResponse {
     imageUrl?: string;
     error?: string;
     code?: string;
+    // RPG Data from AI
+    hpChange?: number;
+    xpGain?: number;
+    newItem?: string;
+    suggestedActions?: string[];
+    isEnding?: 'win' | 'lose' | null;
+    day?: number;
+    timeOfDay?: 'morning' | 'afternoon' | 'evening' | 'night';
+    isSafeZone?: boolean;
+    activeEnemy?: {
+        name: string;
+        hp: number;
+        maxHp: number;
+    } | null;
 }
 
 export interface StartAdventureRequest {

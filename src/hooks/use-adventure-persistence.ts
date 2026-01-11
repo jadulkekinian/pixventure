@@ -12,6 +12,13 @@ interface SaveAdventureParams {
     memberId: string;
     username: string;
     language: Language;
+    hp: number;
+    xp: number;
+    inventory: string[];
+    day: number;
+    timeOfDay: string;
+    isSafeZone: boolean;
+    activeEnemy: any | null;
 }
 
 interface SaveSceneParams {
@@ -42,6 +49,13 @@ export function useAdventurePersistence() {
                         language: params.language,
                         last_played_at: new Date().toISOString(),
                         is_active: true,
+                        hp: params.hp,
+                        xp: params.xp,
+                        inventory: params.inventory,
+                        day: params.day,
+                        time_of_day: params.timeOfDay,
+                        is_safe_zone: params.isSafeZone,
+                        active_enemy: params.activeEnemy,
                     },
                     {
                         onConflict: 'member_id,is_active',

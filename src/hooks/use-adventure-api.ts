@@ -11,6 +11,23 @@ export function useAdventureAPI() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const parseRPGMetadata = (story: string): { story: string; rpgData: any } => {
+        const rpgRegex = /\[\[RPG:([\s\S]*?)\]\]/;
+        const match = story.match(rpgRegex);
+
+        if (match) {
+            try {
+                const jsonStr = match[1].trim();
+                const rpgData = JSON.parse(jsonStr);
+                const cleanStory = story.replace(rpgRegex, '').trim();
+                return { story: cleanStory, rpgData };
+            } catch (e) {
+                logger.error('Failed to parse RPG metadata', { error: e, raw: match[1] });
+            }
+        }
+        return { story, rpgData: null };
+    };
+
     const startAdventure = useCallback(async (language: Language): Promise<AdventureAPIResponse | null> => {
         setIsLoading(true);
         setError(null);
@@ -26,6 +43,24 @@ export function useAdventureAPI() {
 
             if (!data.success) {
                 throw new Error(data.error || 'Failed to start adventure');
+            }
+
+            if (data.story) {
+                const { story, rpgData } = parseRPGMetadata(data.story);
+                data.story = story;
+                if (rpgData) {
+                    data.hpChange = rpgData.hpChange || 0;
+                    data.xpGain = rpgData.xpGain || 0;
+                    data.newItem = rpgData.item;
+                    data.suggestedActions = rpgData.actions;
+                    data.isEnding = rpgData.end;
+                    data.day = rpgData.day;
+                    data.timeOfDay = rpgData.time;
+                    data.isSafeZone = !!rpgData.safe;
+                    data.activeEnemy = rpgData.enemy || null;
+                    // For start, AI might set absolute values
+                    if (rpgData.hp !== undefined) data.hpChange = rpgData.hp;
+                }
             }
 
             return data;
@@ -59,6 +94,22 @@ export function useAdventureAPI() {
 
                 if (!data.success) {
                     throw new Error(data.error || 'Failed to process command');
+                }
+
+                if (data.story) {
+                    const { story, rpgData } = parseRPGMetadata(data.story);
+                    data.story = story;
+                    if (rpgData) {
+                        data.hpChange = rpgData.hpChange || 0;
+                        data.xpGain = rpgData.xpGain || 0;
+                        data.newItem = rpgData.item;
+                        data.suggestedActions = rpgData.actions;
+                        data.isEnding = rpgData.end;
+                        data.day = rpgData.day;
+                        data.timeOfDay = rpgData.time;
+                        data.isSafeZone = !!rpgData.safe;
+                        data.activeEnemy = rpgData.enemy || null;
+                    }
                 }
 
                 return data;

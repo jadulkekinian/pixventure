@@ -71,7 +71,29 @@ export async function POST(request: NextRequest) {
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: lang.system + " Use 1-2 short, punchy paragraphs with double newlines between them. Describe the result of the player's action." },
+          {
+            role: 'system', content: lang.system + ` Use 1-2 short, punchy paragraphs with double newlines between them. Describe the result of the player's action.
+          
+          CRITICAL: Also include RPG metadata at the end in this EXACT format:
+          [[RPG:{"hpChange":-5,"xpGain":10,"item":"Torch","actions":["Go Up","Open Door","Rest"],"end":null,"day":1,"time":"morning","safe":false,"enemy":{"name":"Goblin","hp":20,"maxHp":20}}]]
+          - 'hpChange': - (damage), + (heal), or 0.
+          - 'xpGain': number of XP earned.
+          - 'item': name of item found or null.
+          - 'actions': 3 short quick contextual actions.
+          - 'end': 'win' if goal achieved, 'lose' if HP hits 0 or fatal event, else null.
+          - 'day': Current adventure day.
+          - 'time': 'morning', 'afternoon', 'evening', or 'night'.
+          - 'safe': true if the location is safe (Shrine, Camp, Secure Room), else false.
+          - 'enemy': {"name":"Monster Name","hp":number,"maxHp":number} if in combat, else null.
+          
+          LOGIC GUARD: Reject impossible or anachronistic actions narratively. Explain why it failed and apply a small HP penalty for "mental strain" if the command is insane.
+          
+          COMBAT RULES: If an enemy is active, player actions should damage the enemy or defend. The AI must manage enemy HP in the metadata. If enemy HP hits 0, it is defeated and you must set 'enemy' to null.
+          
+          REST RULE: If the player chooses to 'Rest' in a safe zone, provide a positive 'hpChange' (e.g. +50) to heal them.
+          
+          LANGUAGE: Provide story AND 'actions' in ${language === 'en' ? 'English' : language === 'id' ? 'Indonesian' : 'Japanese'}.`
+          },
           { role: 'user', content: `History: ${previousScene}\nAction: ${command}` },
         ],
         temperature: 0.8,
