@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { startAdventureSchema } from '@/lib/validation';
 import { ValidationError, AIGenerationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { saveBase64Image } from '@/lib/image-utils';
 import Groq from 'groq-sdk';
 
 export const maxDuration = 60; // Allow 60 seconds for AI generation
@@ -72,6 +73,43 @@ PENTING: Anda menulis permainan petualangan teks. Jangan sertakan komentar meta 
   },
 };
 
+// Generate image using Hugging Face Inference API
+async function generateImageWithHuggingFace(prompt: string, hfToken: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${hfToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            num_inference_steps: 25,
+            guidance_scale: 7.5,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.warn('Hugging Face API error', { status: response.status, error: errorText });
+      return null;
+    }
+
+    // Response is binary image data
+    const imageBuffer = await response.arrayBuffer();
+    const base64Image = Buffer.from(imageBuffer).toString('base64');
+    return base64Image;
+  } catch (error) {
+    logger.warn('Failed to generate image with Hugging Face', { error });
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Parse and validate request body
@@ -84,6 +122,8 @@ export async function POST(request: NextRequest) {
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
     const groqApiKey = process.env.GROQ_API_KEY;
+    const hfToken = process.env.HUGGINGFACE_API_KEY;
+
     if (!groqApiKey) {
       logger.error('GROQ_API_KEY is not configured');
       return NextResponse.json(
@@ -100,28 +140,56 @@ export async function POST(request: NextRequest) {
     // Initialize Groq client
     const groq = new Groq({ apiKey: groqApiKey });
 
-    // Generate story using Llama 3.3 70B (fastest and most capable)
-    const storyResponse = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: lang.system },
-        { role: 'user', content: lang.user },
-      ],
-      temperature: 0.8,
-      max_tokens: 1024,
-    });
+    // Image prompt for pixel art style
+    const imagePrompt = 'pixel art fantasy dungeon entrance, ancient mysterious stone gate, glowing runes, torch light, retro RPG game scene, 16-bit graphics style, detailed environment, magical atmosphere';
 
-    const story = storyResponse.choices?.[0]?.message?.content;
-    if (!story) {
-      throw new AIGenerationError('No story content generated');
+    // Generate story and image in parallel
+    const [storyResult, imageResult] = await Promise.allSettled([
+      // 1. Generate story with Groq
+      groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: lang.system },
+          { role: 'user', content: lang.user },
+        ],
+        temperature: 0.8,
+        max_tokens: 1024,
+      }),
+
+      // 2. Generate image with Hugging Face (if token available)
+      hfToken ? generateImageWithHuggingFace(imagePrompt, hfToken) : Promise.resolve(null),
+    ]);
+
+    // Handle story result
+    let story: string;
+    if (storyResult.status === 'fulfilled') {
+      story = storyResult.value.choices?.[0]?.message?.content || '';
+      if (!story) {
+        throw new AIGenerationError('No story content generated');
+      }
+    } else {
+      logger.error('Story generation failed', { error: storyResult.reason });
+      throw new AIGenerationError(`Story generation failed: ${storyResult.reason}`);
     }
 
-    // Groq doesn't support image generation, so we return empty imageUrl
-    // The frontend should handle this gracefully with a placeholder or no image
+    // Handle image result
+    let imageUrl = '';
+    if (imageResult.status === 'fulfilled' && imageResult.value) {
+      try {
+        imageUrl = await saveBase64Image(imageResult.value, 'start');
+        logger.info('Start image saved successfully', { imageUrl });
+      } catch (imageError) {
+        logger.warn('Failed to save image, using fallback', { error: imageError });
+        imageUrl = `data:image/png;base64,${imageResult.value}`;
+      }
+    } else {
+      logger.warn('Image generation skipped or failed');
+    }
+
     return NextResponse.json({
       success: true,
       story,
-      imageUrl: '', // No image generation with Groq
+      imageUrl,
     });
   } catch (error: unknown) {
     // Handle validation errors
