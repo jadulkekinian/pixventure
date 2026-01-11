@@ -180,11 +180,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle unknown errors
-    logger.error('Error starting adventure', { error });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Error starting adventure', { error: errorMessage, stack: (error instanceof Error ? error.stack : undefined) });
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to start adventure. Please try again.',
+        error: `Failed to start adventure: ${errorMessage}`,
         story: 'You stand before an ancient stone dungeon entrance. Weathered vines climb the dark walls, and a mysterious blue light flickers from within. A weathered sign hangs nearby, but the words are worn away by time. The air is thick with the scent of adventure and danger. What do you do?',
         imageUrl: '',
       },
@@ -192,3 +193,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+```
