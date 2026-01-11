@@ -8,7 +8,6 @@ import { useRef, useEffect } from 'react';
 import { useGameStore } from '@/hooks/use-game-store';
 import { translations as allTranslations } from '@/lib/translations';
 
-
 export function AdventureLog({ logs: propLogs, translations: propTranslations }: AdventureLogProps) {
     const { logs: storeLogs, language } = useGameStore();
     const logEndRef = useRef<HTMLDivElement>(null);

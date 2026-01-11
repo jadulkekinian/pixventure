@@ -132,7 +132,7 @@ export default function PixVentureGame() {
 
     updateGameState({ isTyping: true, isGeneratingImage: true });
 
-    const data = await sendCommand(command, currentScene, language);
+    const data = await sendCommand(command, currentScene || '', language);
 
     if (data) {
       updateGameState({
@@ -154,10 +154,11 @@ export default function PixVentureGame() {
           adventureId,
           sceneNumber: logs.length + 1,
           storyText: data.story,
-          imageUrl: data.imageUrl,
+          imageUrl: data.imageUrl || '',
           command
         });
       }
+
     } else {
       updateGameState({ isTyping: false, isGeneratingImage: false });
     }

@@ -5,19 +5,9 @@ import { Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CommandInputProps } from '@/lib/types';
-import { useRef, KeyboardEvent } from 'react';
-
-'use client';
-
-import { motion } from 'framer-motion';
-import { Send, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CommandInputProps } from '@/lib/types';
-import { useRef, useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent } from 'react';
 import { useGameStore } from '@/hooks/use-game-store';
 import { translations as allTranslations } from '@/lib/translations';
-
 
 export function CommandInput({
     onSend,
@@ -48,7 +38,7 @@ export function CommandInput({
             <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder={propPlaceholder || t.inputPlaceholder}
                 disabled={isDisabled}
                 className="flex-1 bg-black/60 border-2 border-yellow-400/40 text-yellow-100 placeholder:text-gray-600 focus:border-yellow-400 font-pixel text-sm h-14 px-4"
