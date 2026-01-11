@@ -11,6 +11,37 @@ const languageInstructions = {
   ja: { system: "あなたは創造的なダンジョンマスターです。プレイヤーの行動に応答してください。" },
 };
 
+/**
+ * Robust Image Fetcher with Retries
+ * Fetches from Pollinations and converts to Base64
+ */
+async function fetchImageAsBase64(prompt: string, seed: number): Promise<string> {
+  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true`;
+
+  let attempts = 0;
+  const maxAttempts = 3; // Lower for actions to keep it snappy
+
+  while (attempts < maxAttempts) {
+    try {
+      const res = await fetch(pollUrl, { signal: AbortSignal.timeout(15000) });
+
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || 'image/jpeg';
+        if (contentType.includes('image')) {
+          const buffer = await res.arrayBuffer();
+          const base64 = Buffer.from(buffer).toString('base64');
+          return `data:${contentType};base64,${base64}`;
+        }
+      }
+    } catch (e) {
+      logger.warn(`Pollinations action attempt ${attempts + 1} failed`, { error: e });
+    }
+    attempts++;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return pollUrl; // Fallback
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -22,7 +53,7 @@ export async function POST(request: NextRequest) {
     const groq = new Groq({ apiKey: groqApiKey });
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
-    // Parallel: Story + English translation
+    // Parallel: Text Generation + Translated Keywords
     const [storyResult, translationResult] = await Promise.all([
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
@@ -45,28 +76,15 @@ export async function POST(request: NextRequest) {
     const story = storyResult.choices?.[0]?.message?.content;
     const keywords = (translationResult.choices?.[0]?.message?.content || command).replace(/[^a-zA-Z0-9, ]/g, '').trim();
 
-    // Generate image and convert to Base64
+    // Generate image Base64 after keywords are ready
     const seed = Math.floor(Math.random() * 9999999);
-    const prompt = `pixel art fantasy, ${keywords}, retro RPG scene, detailed`;
-    const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true`;
-
-    let imageUrl = '';
-    try {
-      const imgRes = await fetch(pollUrl);
-      if (imgRes.ok) {
-        const buffer = await imgRes.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString('base64');
-        imageUrl = `data:${imgRes.headers.get('content-type') || 'image/jpeg'};base64,${base64}`;
-      }
-    } catch (e) {
-      logger.error('Base64 image generation failed', { error: e });
-      imageUrl = pollUrl; // Fallback
-    }
+    const imagePrompt = `pixel art fantasy, ${keywords}, retro RPG scene, detailed`;
+    const base64Image = await fetchImageAsBase64(imagePrompt, seed);
 
     return NextResponse.json({
       success: true,
       story,
-      imageUrl,
+      imageUrl: base64Image,
     });
   } catch (error: unknown) {
     logger.error('Action error', { error });
