@@ -10,7 +10,7 @@ import { StartScreenProps } from '@/lib/types';
 
 import { useGameStore } from '@/hooks/use-game-store';
 
-export function StartScreen({ onStartGame, mounted, username, isLoading }: StartScreenProps) {
+export function StartScreen({ onStartGame, mounted = true, username, isLoading }: StartScreenProps) {
     const { language, setLanguage } = useGameStore();
     const t = translations[language];
 

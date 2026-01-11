@@ -7,9 +7,17 @@ import { Input } from '@/components/ui/input';
 import { CommandInputProps } from '@/lib/types';
 import { useRef, KeyboardEvent } from 'react';
 
+'use client';
+
+import { motion } from 'framer-motion';
+import { Send, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { CommandInputProps } from '@/lib/types';
 import { useRef, useState, KeyboardEvent } from 'react';
 import { useGameStore } from '@/hooks/use-game-store';
 import { translations as allTranslations } from '@/lib/translations';
+
 
 export function CommandInput({
     onSend,
