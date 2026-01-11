@@ -12,19 +12,20 @@ const languageInstructions = {
 };
 
 /**
- * Robust Image Fetcher with Retries
+ * Robust Image Fetcher with Retries and Fallbacks
  */
 async function fetchImageAsBase64(prompt: string, seed: number): Promise<string> {
   const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true`;
 
   let attempts = 0;
-  const maxAttempts = 3;
+  const maxAttempts = 2;
 
   while (attempts < maxAttempts) {
     try {
-      logger.info(`Fetching image from Pollinations (Attempt ${attempts + 1})`, { prompt, seed });
+      logger.info(`Fetching image for action (Attempt ${attempts + 1})`, { prompt, seed });
+
       const res = await fetch(pollUrl, {
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(40000), // Increased timeout
         headers: { 'Accept': 'image/*' }
       });
 
@@ -36,16 +37,18 @@ async function fetchImageAsBase64(prompt: string, seed: number): Promise<string>
           return `data:${contentType};base64,${base64}`;
         }
       }
-      logger.warn(`Pollinations action attempt ${attempts + 1} failed status ${res.status}`);
-    } catch (e) {
-      logger.warn(`Pollinations action attempt ${attempts + 1} error`, { error: e });
+    } catch (e: any) {
+      logger.warn(`Pollinations action attempt ${attempts + 1} failed or timed out`, { error: e.message });
     }
     attempts++;
     if (attempts < maxAttempts) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 500));
     }
   }
-  return pollUrl; // Fallback
+
+  // High quality placeholder fallback
+  logger.error('All action image attempts failed, using placeholder');
+  return `https://placehold.co/512x512/1e293b/facc15?text=Vision+Faded+Continue`;
 }
 
 export async function POST(request: NextRequest) {
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
     const groq = new Groq({ apiKey: groqApiKey });
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
-    // Phase 1: Generate Story and English Keywords in parallel
+    // Parallel: Text Generation + Translated Keywords
     const [storyResult, translationResult] = await Promise.allSettled([
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
