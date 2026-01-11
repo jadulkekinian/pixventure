@@ -46,9 +46,11 @@ export async function POST(request: NextRequest) {
     if (!story) throw new Error('No story generated');
 
     // Return direct Pollinations URL with randomized seed
-    // Using simple English prompt for highest compatibility
-    const seed = Math.floor(Math.random() * 999999);
-    const imageUrl = `https://image.pollinations.ai/prompt/pixel%20art%20fantasy%20dungeon%20entrance%20mysterious%20stone%20gate%20glowing%20runes%20RPG%20retro%20game?width=1024&height=1024&seed=${seed}&nologo=true`;
+    const seed = Math.floor(Math.random() * 9999999);
+    const prompt = "pixel art fantasy dungeon entrance, mysterious stone gate, glowing runes, retro RPG style, highly detailed";
+    const imageUrl = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=768&height=768&seed=${seed}&nologo=true`;
+
+    logger.info('Generated start adventure image URL', { imageUrl });
 
     return NextResponse.json({
       success: true,

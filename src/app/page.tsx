@@ -8,6 +8,7 @@ import { useJDKUser } from '@/hooks/use-jdk-user';
 import { useAdventurePersistence } from '@/hooks/use-adventure-persistence';
 import { translations } from '@/lib/translations';
 import { logger } from '@/lib/logger';
+import { RefreshCw, AlertCircle } from 'lucide-react';
 
 // Modular Components
 import { StartScreen } from '@/components/StartScreen';
@@ -34,17 +35,20 @@ export default function PixVentureGame() {
     language
   } = useGameStore();
 
-  const setGameState = updateGameState;
-  const gameState = { isGameStarted, currentScene, sceneImage, logs, isTyping, isGeneratingImage };
-
-
   const { startAdventure, sendCommand, isLoading: isApiLoading } = useAdventureAPI();
   const { user, isAuthenticated } = useJDKUser();
   const { saveAdventure, saveScene, loadAdventure, isLoading: isDbLoading } = useAdventurePersistence();
 
   const [adventureId, setAdventureId] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
+  const [imageRetryCount, setImageRetryCount] = useState(0);
 
   const t = translations[language];
+
+  // Reset image error when URL changes
+  useEffect(() => {
+    setImageError(false);
+  }, [sceneImage]);
 
   // Try to resume existing adventure when user is identified
   useEffect(() => {
@@ -69,10 +73,9 @@ export default function PixVentureGame() {
               timestamp: new Date(s.created_at)
             })),
             isTyping: false,
-            isGeneratingImage: false
+            isGeneratingImage: false,
+            isGameStarted: true
           });
-
-          setIsGameStarted(true);
         }
       }
     }
@@ -81,7 +84,8 @@ export default function PixVentureGame() {
   }, [isAuthenticated, user, loadAdventure, updateGameState, setLanguage, setIsGameStarted]);
 
   const handleStart = async () => {
-    updateGameState({ isTyping: true });
+    updateGameState({ isTyping: true, isGeneratingImage: true });
+    setImageError(false);
 
     const data = await startAdventure(language);
 
@@ -89,7 +93,8 @@ export default function PixVentureGame() {
       updateGameState({
         currentScene: data.story,
         sceneImage: data.imageUrl,
-        isTyping: false
+        isTyping: false,
+        isGeneratingImage: !data.imageUrl // If no image, stop loading
       });
 
       addLog({
@@ -114,10 +119,12 @@ export default function PixVentureGame() {
             adventureId: newAdventureId,
             sceneNumber: 1,
             storyText: data.story,
-            imageUrl: data.imageUrl
+            imageUrl: data.imageUrl || ''
           });
         }
       }
+    } else {
+      updateGameState({ isTyping: false, isGeneratingImage: false });
     }
   };
 
@@ -131,6 +138,7 @@ export default function PixVentureGame() {
     });
 
     updateGameState({ isTyping: true, isGeneratingImage: true });
+    setImageError(false);
 
     const data = await sendCommand(command, currentScene || '', language);
 
@@ -139,7 +147,7 @@ export default function PixVentureGame() {
         currentScene: data.story,
         sceneImage: data.imageUrl,
         isTyping: false,
-        isGeneratingImage: false
+        isGeneratingImage: !data.imageUrl
       });
 
       addLog({
@@ -161,6 +169,19 @@ export default function PixVentureGame() {
 
     } else {
       updateGameState({ isTyping: false, isGeneratingImage: false });
+    }
+  };
+
+  const handleRetryImage = () => {
+    if (sceneImage) {
+      // Append a tiny update to the seed to force reload
+      const newUrl = sceneImage.includes('&retry=')
+        ? sceneImage.replace(/&retry=\d+/, `&retry=${Date.now()}`)
+        : `${sceneImage}&retry=${Date.now()}`;
+
+      updateGameState({ sceneImage: newUrl, isGeneratingImage: true });
+      setImageError(false);
+      setImageRetryCount(prev => prev + 1);
     }
   };
 
@@ -221,18 +242,41 @@ export default function PixVentureGame() {
               {/* Left Column: Visuals & Story */}
               <div className="lg:col-span-8 flex flex-col gap-6 min-h-0">
                 <div className="relative aspect-video rounded-xl overflow-hidden border-4 border-yellow-400/20 bg-slate-900 shadow-2xl">
-                  {sceneImage ? (
+                  {sceneImage && !imageError ? (
                     <img
                       src={sceneImage}
                       alt="Current Scene"
                       className={`w-full h-full object-cover transition-opacity duration-1000 ${isGeneratingImage ? 'opacity-40' : 'opacity-100'}`}
+                      onLoad={() => updateGameState({ isGeneratingImage: false })}
+                      onError={() => {
+                        setImageError(true);
+                        updateGameState({ isGeneratingImage: false });
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-4">
-                      <span className="text-6xl animate-pulse">🖼️</span>
-                      <p className="text-xs font-pixel tracking-widest uppercase">Waiting for vision...</p>
+                      {imageError ? (
+                        <>
+                          <AlertCircle className="w-12 h-12 text-red-500 animate-pulse" />
+                          <p className="text-xs font-pixel tracking-widest uppercase text-red-400">Vision Failed to Load</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRetryImage}
+                            className="mt-2 border-yellow-400/50 text-yellow-400"
+                          >
+                            <RefreshCw className="w-3 h-3 mr-2" /> RETRY VISION
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-6xl animate-pulse">🖼️</span>
+                          <p className="text-xs font-pixel tracking-widest uppercase">Waiting for vision...</p>
+                        </>
+                      )}
                     </div>
                   )}
+
                   {isGeneratingImage && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
                       <div className="text-center">
@@ -246,6 +290,17 @@ export default function PixVentureGame() {
                         <p className="text-[10px] font-pixel text-yellow-400 animate-pulse">GENERATING VISION...</p>
                       </div>
                     </div>
+                  )}
+
+                  {/* Manual Refresh Button Overlay */}
+                  {sceneImage && !isGeneratingImage && !imageError && (
+                    <button
+                      onClick={handleRetryImage}
+                      className="absolute bottom-2 right-2 p-2 bg-black/50 hover:bg-black/80 rounded-full border border-white/10 transition-colors"
+                      title="Regenerate Vision"
+                    >
+                      <RefreshCw className="w-4 h-4 text-white/50" />
+                    </button>
                   )}
                 </div>
                 <CurrentScene />

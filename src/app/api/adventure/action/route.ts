@@ -44,11 +44,14 @@ export async function POST(request: NextRequest) {
     ]);
 
     const story = storyResult.choices?.[0]?.message?.content;
-    const keywords = (translationResult.choices?.[0]?.message?.content || command).replace(/[^a-zA-Z0-9, ]/g, '');
+    const keywords = (translationResult.choices?.[0]?.message?.content || command).replace(/[^a-zA-Z0-9, ]/g, '').trim();
 
     // Generate Direct Pollinations URL
-    const seed = Math.floor(Math.random() * 999999);
-    const imageUrl = `https://image.pollinations.ai/prompt/pixel%20art%20fantasy%20${encodeURIComponent(keywords)}%20RPG%20retro%20game%20scene?width=1024&height=1024&seed=${seed}&nologo=true`;
+    const seed = Math.floor(Math.random() * 9999999);
+    const prompt = `pixel art fantasy, ${keywords}, retro RPG scene, detailed`;
+    const imageUrl = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=768&height=768&seed=${seed}&nologo=true`;
+
+    logger.info('Generated action adventure image URL', { imageUrl, keywords });
 
     return NextResponse.json({
       success: true,
