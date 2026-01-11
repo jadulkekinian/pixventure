@@ -173,29 +173,22 @@ export default function PixVentureGame() {
   };
 
   const handleRetryImage = () => {
+    // With Base64, a simple state reset might help if it failed to render
+    // but usually a full command retry is needed. 
+    // For now, we'll just try to clear and re-set the state.
     if (sceneImage) {
-      const newUrl = sceneImage.includes('&retry=')
-        ? sceneImage.replace(/&retry=\d+/, `&retry=${Date.now()}`)
-        : `${sceneImage}&retry=${Date.now()}`;
-
-      updateGameState({ sceneImage: newUrl, isGeneratingImage: true });
+      updateGameState({ isGeneratingImage: true });
       setImageError(false);
-      setImageRetryCount(prev => prev + 1);
+      // Re-triggering the same image might not help much with Base64
+      // unless it was a transient rendering issue.
+      setTimeout(() => updateGameState({ isGeneratingImage: false }), 500);
+    } else {
+      // If no image, try starting over or sending last command
+      handleStart();
     }
   };
 
-  // Helper to get raw Pollinations URL from proxy URL for direct fallback
-  const getDirectImageUrl = () => {
-    if (sceneImage && sceneImage.includes('/api/image-proxy')) {
-      const params = new URLSearchParams(sceneImage.split('?')[1]);
-      const prompt = params.get('prompt');
-      const seed = params.get('seed');
-      if (prompt) {
-        return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=768&height=768&seed=${seed || '123'}&nologo=true`;
-      }
-    }
-    return sceneImage;
-  };
+
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-pixel selection:bg-yellow-400 selection:text-black">
@@ -277,7 +270,7 @@ export default function PixVentureGame() {
                       {imageError ? (
                         <>
                           <AlertCircle className="w-12 h-12 text-red-500 animate-pulse" />
-                          <p className="text-xs font-pixel tracking-widest uppercase text-red-400">Vision Loading Error</p>
+                          <p className="text-xs font-pixel tracking-widest uppercase text-red-400">Vision Failed to Render</p>
                           <div className="flex flex-col gap-2 scale-75 md:scale-100">
                             <Button
                               variant="outline"
@@ -285,17 +278,7 @@ export default function PixVentureGame() {
                               onClick={handleRetryImage}
                               className="border-yellow-400/50 text-yellow-400"
                             >
-                              <RefreshCw className="w-3 h-3 mr-2" /> RETRY INTERNAL PROXY
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              asChild
-                              className="text-slate-400 text-[8px]"
-                            >
-                              <a href={getDirectImageUrl()} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="w-3 h-3 mr-2" /> OPEN DIRECT IMAGE LINK
-                              </a>
+                              <RefreshCw className="w-3 h-3 mr-2" /> RETRY RENDERING
                             </Button>
                           </div>
                         </>

@@ -13,17 +13,20 @@ const languageInstructions = {
 
 /**
  * Robust Image Fetcher with Retries
- * Fetches from Pollinations and converts to Base64
  */
 async function fetchImageAsBase64(prompt: string, seed: number): Promise<string> {
   const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true`;
 
   let attempts = 0;
-  const maxAttempts = 3; // Lower for actions to keep it snappy
+  const maxAttempts = 3;
 
   while (attempts < maxAttempts) {
     try {
-      const res = await fetch(pollUrl, { signal: AbortSignal.timeout(15000) });
+      logger.info(`Fetching image from Pollinations (Attempt ${attempts + 1})`, { prompt, seed });
+      const res = await fetch(pollUrl, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'Accept': 'image/*' }
+      });
 
       if (res.ok) {
         const contentType = res.headers.get('content-type') || 'image/jpeg';
@@ -33,11 +36,14 @@ async function fetchImageAsBase64(prompt: string, seed: number): Promise<string>
           return `data:${contentType};base64,${base64}`;
         }
       }
+      logger.warn(`Pollinations action attempt ${attempts + 1} failed status ${res.status}`);
     } catch (e) {
-      logger.warn(`Pollinations action attempt ${attempts + 1} failed`, { error: e });
+      logger.warn(`Pollinations action attempt ${attempts + 1} error`, { error: e });
     }
     attempts++;
-    await new Promise(r => setTimeout(r, 1000));
+    if (attempts < maxAttempts) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
   }
   return pollUrl; // Fallback
 }
@@ -48,13 +54,13 @@ export async function POST(request: NextRequest) {
     const { command, previousScene, language } = actionRequestSchema.parse(body);
 
     const groqApiKey = process.env.GROQ_API_KEY;
-    if (!groqApiKey) return NextResponse.json({ success: false, error: 'Key missing' }, { status: 500 });
+    if (!groqApiKey) return NextResponse.json({ success: false, error: 'Groq API Key missing' }, { status: 500 });
 
     const groq = new Groq({ apiKey: groqApiKey });
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
-    // Parallel: Text Generation + Translated Keywords
-    const [storyResult, translationResult] = await Promise.all([
+    // Phase 1: Generate Story and English Keywords in parallel
+    const [storyResult, translationResult] = await Promise.allSettled([
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [
@@ -73,21 +79,31 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
-    const story = storyResult.choices?.[0]?.message?.content;
-    const keywords = (translationResult.choices?.[0]?.message?.content || command).replace(/[^a-zA-Z0-9, ]/g, '').trim();
+    let story = '';
+    if (storyResult.status === 'fulfilled') {
+      story = storyResult.value.choices?.[0]?.message?.content || '';
+    } else {
+      logger.error('Story continuation failed', { error: storyResult.reason });
+      throw new Error('Failed to continue story');
+    }
 
-    // Generate image Base64 after keywords are ready
+    let keywords = command;
+    if (translationResult.status === 'fulfilled') {
+      keywords = (translationResult.value.choices?.[0]?.message?.content || command).replace(/[^a-zA-Z0-9, ]/g, '').trim();
+    }
+
+    // Phase 2: Generate Image using keywords (Resilient)
     const seed = Math.floor(Math.random() * 9999999);
     const imagePrompt = `pixel art fantasy, ${keywords}, retro RPG scene, detailed`;
-    const base64Image = await fetchImageAsBase64(imagePrompt, seed);
+    const imageResult = await fetchImageAsBase64(imagePrompt, seed);
 
     return NextResponse.json({
       success: true,
       story,
-      imageUrl: base64Image,
+      imageUrl: imageResult,
     });
   } catch (error: unknown) {
-    logger.error('Action error', { error });
-    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
+    logger.error('Action fatal error', { error });
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

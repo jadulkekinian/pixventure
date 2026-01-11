@@ -3,7 +3,7 @@ import { startAdventureSchema } from '@/lib/validation';
 import { logger } from '@/lib/logger';
 import Groq from 'groq-sdk';
 
-export const maxDuration = 60; // 60s for Pro, but we'll try to stay under 10s for Hobby
+export const maxDuration = 60;
 
 const languageInstructions = {
   en: {
@@ -21,22 +21,24 @@ const languageInstructions = {
 };
 
 /**
- * Robust Image Fetcher with Retries
- * Fetches from Pollinations and converts to Base64
+ * Robust Image Fetcher with Retries and Base64 Conversion
  */
 async function fetchImageAsBase64(prompt: string, seed: number): Promise<string> {
   const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true`;
 
   let attempts = 0;
-  const maxAttempts = 5;
+  const maxAttempts = 3;
 
   while (attempts < maxAttempts) {
     try {
-      const res = await fetch(pollUrl, { signal: AbortSignal.timeout(15000) });
+      logger.info(`Fetching image from Pollinations (Attempt ${attempts + 1})`, { prompt, seed });
+      const res = await fetch(pollUrl, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'Accept': 'image/*' }
+      });
 
       if (res.ok) {
         const contentType = res.headers.get('content-type') || 'image/jpeg';
-        // Check if we actually got an image and not an error page disguised as 200
         if (contentType.includes('image')) {
           const buffer = await res.arrayBuffer();
           const base64 = Buffer.from(buffer).toString('base64');
@@ -46,15 +48,16 @@ async function fetchImageAsBase64(prompt: string, seed: number): Promise<string>
 
       logger.warn(`Pollinations attempt ${attempts + 1} failed with status ${res.status}`);
     } catch (e) {
-      logger.warn(`Pollinations attempt ${attempts + 1} exception`, { error: e });
+      logger.warn(`Pollinations attempt ${attempts + 1} error`, { error: e });
     }
 
     attempts++;
-    // Small delay between retries
-    await new Promise(r => setTimeout(r, 1000));
+    if (attempts < maxAttempts) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
   }
 
-  // Return direct URL as last-resort fallback if Base64 fails
+  // Last resort: Return the direct URL. The frontend will try to load it.
   return pollUrl;
 }
 
@@ -64,16 +67,16 @@ export async function POST(request: NextRequest) {
     const { language } = startAdventureSchema.parse(body);
 
     const groqApiKey = process.env.GROQ_API_KEY;
-    if (!groqApiKey) return NextResponse.json({ success: false, error: 'Key missing' }, { status: 500 });
+    if (!groqApiKey) return NextResponse.json({ success: false, error: 'Groq API Key missing' }, { status: 500 });
 
     const groq = new Groq({ apiKey: groqApiKey });
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
-    // Parallel: Text Generation + Image Generation
     const seed = Math.floor(Math.random() * 9999999);
     const imagePrompt = "pixel art fantasy dungeon entrance, mysterious stone gate, glowing runes, retro RPG style, highly detailed";
 
-    const [storyResponse, base64Image] = await Promise.all([
+    // Parallel execution using Promise.allSettled for maximum resilience
+    const [storyResult, imageResult] = await Promise.allSettled([
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [
@@ -85,16 +88,30 @@ export async function POST(request: NextRequest) {
       fetchImageAsBase64(imagePrompt, seed)
     ]);
 
-    const story = storyResponse.choices?.[0]?.message?.content;
-    if (!story) throw new Error('No story generated');
+    let story = '';
+    if (storyResult.status === 'fulfilled') {
+      story = storyResult.value.choices?.[0]?.message?.content || '';
+    } else {
+      logger.error('Story generation failed', { error: storyResult.reason });
+      throw new Error('Failed to generate story');
+    }
+
+    let imageUrl = '';
+    if (imageResult.status === 'fulfilled') {
+      imageUrl = imageResult.value;
+    } else {
+      logger.warn('Image generation failed settled', { reason: imageResult.reason });
+      // Use fallback URL if Base64 fails completely
+      imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=512&height=512&seed=${seed}&nologo=true`;
+    }
 
     return NextResponse.json({
       success: true,
       story,
-      imageUrl: base64Image,
+      imageUrl,
     });
   } catch (error: unknown) {
-    logger.error('Start adventure error', { error });
-    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
+    logger.error('Start adventure fatal error', { error });
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
