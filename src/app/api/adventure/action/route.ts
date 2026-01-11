@@ -92,9 +92,24 @@ export async function POST(request: NextRequest) {
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
     const langCode = language === 'en' ? 'English' : language === 'id' ? 'Bahasa Indonesia' : 'Japanese';
 
-    const zai = await ZAI.create();
+    const zaiApiKey = process.env.Z_AI_API_KEY;
+    if (!zaiApiKey) {
+      logger.error('Z_AI_API_KEY is not configured');
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'AI service is not configured. Please add Z_AI_API_KEY to your Vercel environment variables.',
+          story: 'As you move forward, the dungeon whispers secrets unknown... [DEMO MODE: Please configure Z_AI_API_KEY for the full experience]',
+          imageUrl: '',
+        },
+        { status: 500 }
+      );
+    }
+
+    const zai = await ZAI.create({ apiKey: zaiApiKey });
 
     // Generate story and image in parallel for better performance
+    // Use the command and previous scene to create a specific image prompt
     const imagePromptPreview = `${previousScene.substring(0, 200)}. Player action: ${command}. Pixel art style, fantasy video game scene, retro RPG aesthetic, 16-bit graphics`;
 
     const [storyCompletion, imageResponse] = await Promise.all([
