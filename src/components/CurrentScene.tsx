@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Volume2, Square, Wand2, Mic2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { CurrentSceneProps } from '@/lib/types';
@@ -16,7 +16,7 @@ interface WordToken {
     text: string;
     start: number;
     end: number;
-    isGap: boolean;
+    isWord: boolean;
 }
 
 interface Paragraph {
@@ -36,24 +36,19 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
     const isTyping = propIsTyping !== undefined ? propIsTyping : storeIsTyping;
     const t = propTranslations || allTranslations[language];
 
-    // Robust Multi-language Tokenization using Intl.Segmenter
+    // Robust Multi-language Tokenization
     const paragraphs = useMemo((): Paragraph[] => {
         if (!currentScene) return [];
 
-        // Split by paragraphs first
         const paraStrings = currentScene.split(/\n\s*\n/);
         let globalIndex = 0;
-
-        // Determine locale for segmenter
         const locale = language === 'id' ? 'id-ID' : language === 'ja' ? 'ja-JP' : 'en-US';
 
-        // Firefox might not support Intl.Segmenter yet, so we have a fallback
-        const segmenter = typeof Intl.Segmenter !== 'undefined'
-            ? new Intl.Segmenter(locale, { granularity: 'word' })
+        const segmenter = typeof Intl !== 'undefined' && typeof (Intl as any).Segmenter !== 'undefined'
+            ? new (Intl as any).Segmenter(locale, { granularity: 'word' })
             : null;
 
         return paraStrings.map((paraStr, pIdx) => {
-            // We need to keep track of the exact string with its trailing paragraph breaks for global index mapping
             const actualParaStr = paraStr + (pIdx < paraStrings.length - 1 ? '\n\n' : '');
             const tokens: WordToken[] = [];
 
@@ -64,11 +59,10 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
                         text: segment,
                         start: globalIndex + index,
                         end: globalIndex + index + segment.length,
-                        isGap: !isWordLike
+                        isWord: !!isWordLike
                     });
                 }
             } else {
-                // Fallback for older browsers: split by space but this is poor for Japanese
                 const parts = actualParaStr.split(/(\s+)/);
                 let localIdx = 0;
                 parts.forEach(part => {
@@ -77,7 +71,7 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
                         text: part,
                         start: globalIndex + localIdx,
                         end: globalIndex + localIdx + part.length,
-                        isGap: /^\s+$/.test(part)
+                        isWord: !/^\s+$/.test(part)
                     });
                     localIdx += part.length;
                 });
@@ -88,31 +82,14 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
         });
     }, [currentScene, language]);
 
-    // Proactive Auto-scroll Logic (Scroll 2.0)
+    // Precision Auto-scroll
     useEffect(() => {
         if (isSpeaking && activeWordRef.current && scrollContainerRef.current) {
-            const container = scrollContainerRef.current;
-            const activeWord = activeWordRef.current;
-
-            // Calculate positions
-            const containerRect = container.getBoundingClientRect();
-            const wordRect = activeWord.getBoundingClientRect();
-
-            // Relative position within container
-            const relativeTop = wordRect.top - containerRect.top;
-            const relativeBottom = wordRect.bottom - containerRect.top;
-
-            // Threshold: If the word is in the bottom 40% of the visible area, scroll it up
-            const threshold = containerRect.height * 0.6;
-
-            if (relativeBottom > threshold) {
-                // Scroll so the word is roughly in the middle-top
-                const scrollAmount = relativeTop - (containerRect.height * 0.2);
-                container.scrollBy({
-                    top: scrollAmount,
-                    behavior: 'smooth'
-                });
-            }
+            activeWordRef.current.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+            });
         }
     }, [currentCharIndex, isSpeaking]);
 
@@ -137,23 +114,19 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
         const utterance = new SpeechSynthesisUtterance(currentScene);
         utteranceRef.current = utterance;
 
-        // Mapping internal language code to TTS locale
-        if (language === 'id') utterance.lang = 'id-ID';
-        else if (language === 'ja') utterance.lang = 'ja-JP';
-        else utterance.lang = 'en-US';
+        const langMap: Record<string, string> = { 'id': 'id-ID', 'ja': 'ja-JP', 'en': 'en-US' };
+        utterance.lang = langMap[language] || 'en-US';
 
         if (voiceStyle === 'narrator') {
-            utterance.rate = 0.85; // Slightly slower for gravity
-            utterance.pitch = 0.8;
+            utterance.rate = 0.9;
+            utterance.pitch = 0.85;
         } else {
-            utterance.rate = 1.05;
+            utterance.rate = 1.1;
             utterance.pitch = 1.1;
         }
 
-        // Capture all boundary events for wider browser/engine support
         utterance.onboundary = (event) => {
-            // For some languages/engines, 'word' boundaries are more reliable
-            // We update the index regardless of name if it's progress
+            // Some browsers fire 'word' name, some don't. We track index whenever it changes.
             setCurrentCharIndex(event.charIndex);
         };
 
@@ -162,11 +135,15 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
             setIsSpeaking(false);
             setCurrentCharIndex(-1);
         };
-        utterance.onerror = (e) => {
-            console.error('TTS Error:', e);
+        utterance.onerror = () => {
             setIsSpeaking(false);
             setCurrentCharIndex(-1);
         };
+
+        // Try to find a better voice if available
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang.startsWith(language) && v.localService);
+        if (preferredVoice) utterance.voice = preferredVoice;
 
         window.speechSynthesis.speak(utterance);
     };
@@ -181,109 +158,89 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
     };
 
     return (
-        <Card className="border-2 border-purple-400/40 bg-black/95 shadow-[0_0_40px_rgba(168,85,247,0.25)] overflow-hidden transition-all duration-500">
-            {/* Header with Glassmorphism Controls */}
-            <div className="bg-gradient-to-r from-purple-900/60 via-purple-600/30 to-pink-900/60 p-3 border-b-2 border-purple-400/40 flex items-center justify-between backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Sparkles className="w-5 h-5 text-purple-300 animate-pulse" />
-                        <motion.div
-                            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                            className="absolute inset-0 bg-purple-400 rounded-full blur-sm"
-                        />
-                    </div>
-                    <h2 className="text-purple-200 font-bold tracking-[0.2em] font-pixel text-[10px] md:text-xs uppercase drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]">
+        <Card className="border-2 border-purple-500/40 bg-black/95 shadow-[0_0_40px_rgba(168,85,247,0.3)] overflow-hidden transition-all duration-500 rounded-none relative">
+            {/* Retro Scanline Overlay */}
+            <div className="absolute inset-0 pointer-events-none z-50 opacity-[0.03] overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-[100%] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%]" />
+            </div>
+
+            {/* Header controls */}
+            <div className="bg-purple-900/40 p-2 border-b-2 border-purple-500/30 flex items-center justify-between backdrop-blur-sm">
+                <div className="flex items-center gap-2 pl-2">
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                    <h2 className="text-purple-300 font-bold tracking-[0.2em] font-pixel text-[9px] uppercase">
                         {t.currentScene}
                     </h2>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     {currentScene && !isTyping && (
                         <>
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={toggleVoiceStyle}
-                                className={`h-8 w-8 p-0 rounded-full border-purple-500/40 bg-purple-900/30 hover:bg-purple-800/50 transition-all ${voiceStyle === 'hero' ? 'text-yellow-400 border-yellow-500/60 shadow-[0_0_15px_rgba(234,179,8,0.4)]' : 'text-purple-300'}`}
+                                className={`h-7 w-7 p-0 rounded-none border-purple-500/40 bg-purple-900/40 hover:bg-purple-800/60 transition-all ${voiceStyle === 'hero' ? 'text-yellow-400 border-yellow-500/60' : 'text-purple-300'}`}
                             >
-                                {voiceStyle === 'narrator' ? <Mic2 className="w-4 h-4" /> : <Wand2 className="w-4 h-4" />}
+                                {voiceStyle === 'narrator' ? <Mic2 className="w-3.5 h-3.5" /> : <Wand2 className="w-3.5 h-3.5" />}
                             </Button>
 
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleSpeak}
-                                className={`h-8 gap-2 bg-purple-900/30 hover:bg-purple-800/50 text-purple-200 border border-purple-400/40 px-4 transition-all ${isSpeaking ? 'bg-pink-900/40 text-pink-300 border-pink-400/60 shadow-[0_0_20px_rgba(236,72,153,0.4)]' : ''}`}
+                                className={`h-7 gap-2 bg-purple-900/40 hover:bg-purple-800/60 text-purple-200 border border-purple-500/40 px-3 rounded-none transition-all ${isSpeaking ? 'bg-pink-900/40 text-pink-300 border-pink-500/60' : ''}`}
                             >
                                 {isSpeaking ? (
-                                    <>
-                                        <Square className="w-3 h-3 fill-current animate-pulse" />
-                                        <span className="text-[9px] uppercase font-pixel tracking-tighter">{t.stopNarration}</span>
-                                    </>
+                                    <Square className="w-3 h-3 fill-current" />
                                 ) : (
-                                    <>
-                                        <Volume2 className="w-3 h-3" />
-                                        <span className="text-[9px] uppercase font-pixel tracking-tighter">{t.narrate}</span>
-                                    </>
+                                    <Volume2 className="w-3 h-3" />
                                 )}
+                                <span className="text-[8px] uppercase font-pixel tracking-tighter">{isSpeaking ? t.stopNarration : t.narrate}</span>
                             </Button>
                         </>
                     )}
                 </div>
             </div>
 
-            {/* Story Text Area - Optimized for Readability and Auto-Scroll */}
+            {/* Story text container */}
             <div
                 ref={scrollContainerRef}
-                className="p-8 md:p-12 min-h-[180px] max-h-[500px] overflow-y-auto custom-scrollbar relative scroll-smooth bg-gradient-to-b from-transparent via-purple-900/5 to-transparent"
+                className="p-6 md:p-8 min-h-[160px] max-h-[400px] overflow-y-auto custom-scrollbar relative scroll-smooth selection:bg-purple-500 selection:text-white"
             >
                 {isTyping ? (
-                    <div className="flex flex-col items-center justify-center py-16 gap-8">
-                        <div className="flex items-center gap-4">
-                            {[0, 1, 2].map((i) => (
-                                <motion.div
-                                    key={i}
-                                    animate={{
-                                        scale: [1, 1.8, 1],
-                                        opacity: [0.2, 1, 0.2],
-                                        y: [0, -10, 0]
-                                    }}
-                                    transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.3 }}
-                                    className="w-4 h-4 bg-purple-400 rounded-full shadow-[0_0_15px_#a855f7]"
-                                />
-                            ))}
-                        </div>
-                        <span className="text-purple-300 font-pixel text-xs tracking-[0.4em] uppercase animate-pulse">
+                    <div className="flex flex-col items-center justify-center py-10 gap-6">
+                        <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                            className="w-10 h-10 border-2 border-t-purple-400 border-r-transparent border-b-purple-400 border-l-transparent rounded-full"
+                        />
+                        <span className="text-purple-400 font-pixel text-[10px] tracking-[0.3em] uppercase animate-pulse">
                             {t.generatingStory}
                         </span>
                     </div>
                 ) : paragraphs.length > 0 ? (
-                    <div className="relative z-10 space-y-16 pb-40">
+                    <div className="relative z-10 space-y-10 pb-32">
                         {paragraphs.map((p, pIdx) => (
-                            <div key={pIdx} className="flex flex-wrap items-baseline gap-x-[0.2em] gap-y-3">
+                            <div key={pIdx} className="flex flex-wrap items-baseline gap-x-[0.15em] gap-y-2">
                                 {p.tokens.map((token, tIdx) => {
-                                    // Robust character index check: if the current index has passed this token's start
                                     const isActive = isSpeaking && currentCharIndex >= token.start && currentCharIndex < token.end;
                                     const isPast = isSpeaking && currentCharIndex >= token.end;
 
-                                    if (token.isGap) {
-                                        return <span key={tIdx} className="inline-block" style={{ width: token.text === '\n' ? '100%' : '0.4em' }} />;
+                                    if (!token.isWord) {
+                                        return <span key={tIdx} className="inline-block" style={{ whiteSpace: 'pre-wrap' }}>{token.text}</span>;
                                     }
 
                                     return (
                                         <motion.span
                                             key={tIdx}
                                             ref={isActive ? activeWordRef : null}
-                                            initial={{ opacity: 0, filter: 'blur(10px)' }}
-                                            animate={{ opacity: 1, filter: 'blur(0px)' }}
-                                            transition={{ duration: 0.5, delay: Math.min((pIdx * 5 + tIdx) * 0.02, 1.5) }}
-                                            className={`text-2xl md:text-4xl font-pixel transition-all duration-500 leading-[1.6]
+                                            className={`text-lg md:text-2xl font-pixel transition-all duration-300 leading-relaxed inline-block
                                                 ${isActive
-                                                    ? 'text-yellow-300 scale-110 drop-shadow-[0_0_20px_rgba(250,204,21,1)] z-20 brightness-125'
+                                                    ? 'text-yellow-400 scale-105 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)] z-20'
                                                     : isPast
-                                                        ? 'text-purple-200/40 brightness-75'
-                                                        : 'text-slate-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]'
+                                                        ? 'text-purple-200/40'
+                                                        : 'text-slate-100'
                                                 }
                                             `}
                                         >
@@ -291,37 +248,22 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
                                         </motion.span>
                                     );
                                 })}
-
-                                {pIdx === paragraphs.length - 1 && (
-                                    <motion.span
-                                        animate={{ opacity: [1, 0], scale: [1, 1.2, 1] }}
-                                        transition={{ duration: 1, repeat: Infinity }}
-                                        className="inline-block w-5 h-10 bg-purple-400 ml-3 shadow-[0_0_25px_#a855f7] align-middle opacity-80"
-                                    />
-                                )}
                             </div>
                         ))}
+
+                        {/* Cursor indicator */}
+                        <motion.div
+                            animate={{ opacity: [1, 0] }}
+                            transition={{ duration: 0.8, repeat: Infinity }}
+                            className="inline-block w-2.5 h-6 bg-purple-400 ml-2 shadow-[0_0_10px_#a855f7]"
+                        />
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-24 opacity-20">
-                        <div className="w-24 h-24 border-2 border-dashed border-purple-500/50 rounded-full flex items-center justify-center mb-8 animate-[spin_20s_linear_infinite]">
-                            <Mic2 className="w-12 h-12 text-purple-400" />
-                        </div>
-                        <p className="text-purple-400 font-pixel text-xs uppercase tracking-[0.5em]">{t.waitingForCommand}</p>
+                    <div className="flex flex-col items-center justify-center py-20 opacity-20">
+                        <Mic2 className="w-12 h-12 text-purple-400 mb-4" />
+                        <p className="text-purple-400 font-pixel text-[10px] uppercase tracking-[0.4em]">{t.waitingForCommand}</p>
                     </div>
                 )}
-
-                {/* Cyberpunk Decorative Underlay */}
-                <div className="absolute inset-0 pointer-events-none opacity-[0.03] overflow-hidden select-none">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-purple-500 animate-[scanline_20s_linear_infinite] shadow-[0_0_10px_#a855f7]" />
-                    <div className="grid grid-cols-6 gap-4 p-4 font-mono text-[8px] uppercase">
-                        {Array(100).fill(0).map((_, i) => (
-                            <span key={i} className="opacity-20">
-                                0x{Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0')}
-                            </span>
-                        ))}
-                    </div>
-                </div>
             </div>
         </Card>
     );
