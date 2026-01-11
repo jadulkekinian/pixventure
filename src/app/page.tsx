@@ -145,7 +145,7 @@ export default function PixVentureGame() {
     if (data) {
       updateGameState({
         currentScene: data.story,
-        sceneImage: data.imageUrl,
+        sceneImage: data.imageUrl || '',
         isTyping: false,
         isGeneratingImage: !!data.imageUrl
       });
@@ -211,7 +211,9 @@ export default function PixVentureGame() {
             <StartScreen
               onStartGame={handleStart}
               isLoading={isApiLoading || isDbLoading}
-              username={user?.username}
+              username={user?.username || undefined}
+              language={language}
+              mounted={true}
             />
           </motion.div>
         ) : (
