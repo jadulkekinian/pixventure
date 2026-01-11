@@ -8,6 +8,7 @@ import { CurrentSceneProps } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 
 import { useGameStore } from '@/hooks/use-game-store';
+import { useAudio } from '@/components/AudioSystem';
 import { translations as allTranslations } from '@/lib/translations';
 
 type VoiceStyle = 'narrator' | 'hero';
@@ -25,12 +26,14 @@ interface Paragraph {
 
 export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, translations: propTranslations }: CurrentSceneProps) {
     const { currentScene: storeScene, isTyping: storeIsTyping, language } = useGameStore();
+    const { playSfx } = useAudio();
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [voiceStyle, setVoiceStyle] = useState<VoiceStyle>('narrator');
     const [currentCharIndex, setCurrentCharIndex] = useState(-1);
     const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const activeWordRef = useRef<HTMLSpanElement>(null);
+    const lastScrollLineRef = useRef<number>(0);
 
     const currentScene = propScene !== undefined ? propScene : storeScene;
     const isTyping = propIsTyping !== undefined ? propIsTyping : storeIsTyping;
@@ -82,14 +85,30 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
         });
     }, [currentScene, language]);
 
-    // Precision Auto-scroll
+    // Proactive Auto-scroll Logic (2-line step)
     useEffect(() => {
         if (isSpeaking && activeWordRef.current && scrollContainerRef.current) {
-            activeWordRef.current.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-                inline: 'nearest'
-            });
+            const container = scrollContainerRef.current;
+            const activeWord = activeWordRef.current;
+
+            const containerRect = container.getBoundingClientRect();
+            const wordRect = activeWord.getBoundingClientRect();
+
+            const relativeTop = wordRect.top - containerRect.top;
+            const lineHeight = 32; // Approximate line height for text-2xl
+            const lineIndex = Math.floor(relativeTop / lineHeight);
+
+            // If we've moved down by 2 lines since last scroll
+            if (lineIndex >= 2 && lineIndex > lastScrollLineRef.current) {
+                container.scrollBy({
+                    top: lineHeight,
+                    behavior: 'smooth'
+                });
+                lastScrollLineRef.current = lineIndex;
+            }
+        }
+        if (!isSpeaking) {
+            lastScrollLineRef.current = 0;
         }
     }, [currentCharIndex, isSpeaking]);
 
@@ -124,6 +143,7 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
             return;
         }
 
+        playSfx('narrate');
         const utterance = new SpeechSynthesisUtterance(currentScene);
         utteranceRef.current = utterance;
 
@@ -131,26 +151,39 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
         utterance.lang = langMap[language] || 'en-US';
 
         if (voiceStyle === 'narrator') {
-            utterance.rate = 0.9;
-            utterance.pitch = 0.85;
+            utterance.rate = 0.85;
+            utterance.pitch = 0.9;
         } else {
             utterance.rate = 1.1;
-            utterance.pitch = 1.1;
+            utterance.pitch = 1.2;
         }
 
+        // Robust progress tracking
+        let lastCharIndex = -1;
+        const fallbackTimer = setInterval(() => {
+            if (!isSpeaking) {
+                clearInterval(fallbackTimer);
+                return;
+            }
+            // If the browser doesn't fire onboundary, we can't do much but we keep checking
+        }, 100);
+
         utterance.onboundary = (event) => {
-            // Some browsers fire 'word' name, some don't. We track index whenever it changes.
             setCurrentCharIndex(event.charIndex);
+            lastCharIndex = event.charIndex;
         };
 
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => {
             setIsSpeaking(false);
             setCurrentCharIndex(-1);
+            clearInterval(fallbackTimer);
         };
-        utterance.onerror = () => {
+        utterance.onerror = (e) => {
+            console.error('TTS Error:', e);
             setIsSpeaking(false);
             setCurrentCharIndex(-1);
+            clearInterval(fallbackTimer);
         };
 
         // Try to find a better voice if available
@@ -162,6 +195,7 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
     };
 
     const toggleVoiceStyle = () => {
+        playSfx('click');
         const nextStyle = voiceStyle === 'narrator' ? 'hero' : 'narrator';
         setVoiceStyle(nextStyle);
         if (isSpeaking) {
@@ -241,14 +275,18 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
                                     const isPast = isSpeaking && currentCharIndex >= token.end;
 
                                     if (!token.isWord) {
-                                        return <span key={tIdx} className="inline-block" style={{ whiteSpace: 'pre-wrap' }}>{token.text}</span>;
+                                        return (
+                                            <span key={tIdx} className="inline-block" style={{ whiteSpace: 'pre-wrap' }}>{token.text}</span>
+                                        );
                                     }
 
                                     return (
                                         <motion.span
                                             key={tIdx}
                                             ref={isActive ? activeWordRef : null}
-                                            className={`text-lg md:text-2xl font-pixel transition-all duration-300 leading-relaxed inline-block
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className={`text-2xl font-pixel transition-all duration-300 leading-relaxed inline-block
                                                 ${isActive
                                                     ? 'text-yellow-400 scale-105 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)] z-20'
                                                     : isPast

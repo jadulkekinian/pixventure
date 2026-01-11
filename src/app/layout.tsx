@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { AudioProvider } from "@/components/AudioSystem";
 
 const pressStart2P = Press_Start_2P({
   variable: "--font-pixel",
@@ -20,8 +21,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PixVenture - AI-Powered Adventure Game",
-  description: "An immersive AI-generated text and image adventure game. Built with Next.js, TypeScript, and cutting-edge AI technology.",
+  title: "PixVenture - Pilih Sendiri Petualanganmu",
+  description: "You are the Hero. An immersive AI-generated text and image adventure game.",
   keywords: ["PixVenture", "AI game", "adventure game", "Next.js", "TypeScript", "AI storytelling"],
   authors: [{ name: "PixVenture Team" }],
   icons: {
@@ -51,7 +52,9 @@ export default function RootLayout({
       <body
         className={`${pressStart2P.variable} ${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        {children}
+        <AudioProvider>
+          {children}
+        </AudioProvider>
         <Toaster />
       </body>
     </html>

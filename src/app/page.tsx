@@ -17,6 +17,7 @@ import { CurrentScene } from '@/components/CurrentScene';
 import { CommandInput } from '@/components/CommandInput';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { Button } from '@/components/ui/button';
+import { useAudio } from "@/components/AudioSystem";
 
 export default function PixVentureGame() {
   const {
@@ -37,6 +38,7 @@ export default function PixVentureGame() {
   const { startAdventure, sendCommand, isLoading: isApiLoading } = useAdventureAPI();
   const { user, isAuthenticated } = useJDKUser();
   const { saveAdventure, saveScene, loadAdventure, isLoading: isDbLoading } = useAdventurePersistence();
+  const { playSfx } = useAudio();
 
   const [adventureId, setAdventureId] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
@@ -82,6 +84,7 @@ export default function PixVentureGame() {
   }, [isAuthenticated, user, loadAdventure, updateGameState, setLanguage, setIsGameStarted]);
 
   const handleStart = async () => {
+    playSfx('click');
     updateGameState({ isTyping: true, isGeneratingImage: true });
     setImageError(false);
 
@@ -102,6 +105,7 @@ export default function PixVentureGame() {
       });
 
       setIsGameStarted(true);
+      playSfx('reveal');
 
       // Save to Supabase if user is logged in
       if (isAuthenticated && user) {
@@ -128,6 +132,8 @@ export default function PixVentureGame() {
 
   const handleCommand = async (command: string) => {
     if (!command.trim()) return;
+
+    playSfx('submit');
 
     addLog({
       type: 'command',

@@ -32,8 +32,8 @@ export interface Translations {
 export const translations: Record<Language, Translations> = {
     en: {
         title: 'PixVenture',
-        subtitle: 'AI-Generated Text & Image Adventure',
-        feature1: 'AI-powered storytelling',
+        subtitle: 'Pilih Sendiri Petualanganmu',
+        feature1: 'You are the Hero',
         feature2: 'Dynamically generated pixel art scenes',
         feature3: 'Type commands to explore',
         feature4: 'Unlimited adventure possibilities',
@@ -56,8 +56,8 @@ export const translations: Record<Language, Translations> = {
     },
     id: {
         title: 'PixVenture',
-        subtitle: 'Petualangan Teks & Gambar AI',
-        feature1: 'Cerita bertenaga AI',
+        subtitle: 'Pilih Sendiri Petualanganmu',
+        feature1: 'You are the Hero',
         feature2: 'Sene pixel art yang dihasilkan secara dinamis',
         feature3: 'Ketik perintah untuk menjelajahi',
         feature4: 'Kemungkinan petualangan tak terbatas',
@@ -80,8 +80,8 @@ export const translations: Record<Language, Translations> = {
     },
     ja: {
         title: 'PixVenture',
-        subtitle: 'AI生成テキスト＆イメージアドベンチャー',
-        feature1: 'AI搭載ストーリーテリング',
+        subtitle: 'Pilih Sendiri Petualanganmu',
+        feature1: 'You are the Hero',
         feature2: '動的に生成されるピクセルアートシーン',
         feature3: 'コマンドを入力して探索',
         feature4: '無限の冒険の可能性',

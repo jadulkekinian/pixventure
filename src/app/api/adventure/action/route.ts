@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: lang.system + " Use 3-4 paragraphs with double newlines between them for a novel-like feel. Describe the result of the player's action." },
+          { role: 'system', content: lang.system + " Use 1-2 short, punchy paragraphs with double newlines between them. Describe the result of the player's action." },
           { role: 'user', content: `History: ${previousScene}\nAction: ${command}` },
         ],
         temperature: 0.8,
