@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { startAdventureSchema } from '@/lib/validation';
 import { ValidationError, AIGenerationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { saveBase64Image } from '@/lib/image-utils';
 import Groq from 'groq-sdk';
 
 export const maxDuration = 60; // Allow 60 seconds for AI generation
@@ -73,30 +72,6 @@ PENTING: Anda menulis permainan petualangan teks. Jangan sertakan komentar meta 
   },
 };
 
-// Generate image using Pollinations.ai (Truly FREE, no keys needed)
-async function generateImageWithPollinations(prompt: string): Promise<string | null> {
-  try {
-    // Pollinations image generation endpoint with parameters
-    const seed = Math.floor(Math.random() * 1000000);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux`;
-
-    const response = await fetch(imageUrl);
-
-    if (!response.ok) {
-      logger.warn('Pollinations AI image fetch failed', { status: response.status });
-      return null;
-    }
-
-    // Convert image buffer to base64
-    const buffer = await response.arrayBuffer();
-    const base64Image = Buffer.from(buffer).toString('base64');
-    return base64Image;
-  } catch (error) {
-    logger.warn('Failed to generate image with Pollinations AI', { error });
-    return null;
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
     // Parse and validate request body
@@ -125,57 +100,32 @@ export async function POST(request: NextRequest) {
     // Initialize Groq client
     const groq = new Groq({ apiKey: groqApiKey });
 
-    // Image prompt for pixel art style
+    // Generate story with Groq
+    const storyResponse = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: lang.system },
+        { role: 'user', content: lang.user },
+      ],
+      temperature: 0.8,
+      max_tokens: 1024,
+    });
+
+    const story = storyResponse.choices?.[0]?.message?.content;
+    if (!story) {
+      throw new AIGenerationError('No story content generated');
+    }
+
+    // Generate Pollinations image URL (Super fast, free, no server-side fetch needed for base64)
+    // Using a random seed for uniqueness
     const imagePrompt = 'pixel art fantasy dungeon entrance, ancient mysterious stone gate, glowing runes, torch light, retro RPG game scene, 16-bit graphics style, detailed environment, magical atmosphere, dark fantasy';
-
-    // Generate story and image in parallel
-    const [storyResult, imageResult] = await Promise.allSettled([
-      // 1. Generate story with Groq
-      groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: lang.system },
-          { role: 'user', content: lang.user },
-        ],
-        temperature: 0.8,
-        max_tokens: 1024,
-      }),
-
-      // 2. Generate image with Pollinations (Completely FREE)
-      generateImageWithPollinations(imagePrompt),
-    ]);
-
-    // Handle story result
-    let story: string;
-    if (storyResult.status === 'fulfilled') {
-      story = storyResult.value.choices?.[0]?.message?.content || '';
-      if (!story) {
-        throw new AIGenerationError('No story content generated');
-      }
-    } else {
-      logger.error('Story generation failed', { error: storyResult.reason });
-      throw new AIGenerationError(`Story generation failed: ${storyResult.reason}`);
-    }
-
-    // Handle image result
-    let imageUrl = '';
-    if (imageResult.status === 'fulfilled' && imageResult.value) {
-      try {
-        imageUrl = await saveBase64Image(imageResult.value, 'start');
-        logger.info('Start image saved successfully', { imageUrl });
-      } catch (imageError) {
-        // Fallback to data URI if saving to disk fails (common in serverless)
-        imageUrl = `data:image/png;base64,${imageResult.value}`;
-        logger.info('Using data URI for image as disk save failed or was skipped');
-      }
-    } else {
-      logger.warn('Image generation skipped or failed');
-    }
+    const seed = Math.floor(Math.random() * 1000000);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux`;
 
     return NextResponse.json({
       success: true,
       story,
-      imageUrl,
+      imageUrl, // Return external URL directly (best for Vercel)
     });
   } catch (error: unknown) {
     // Handle validation errors
