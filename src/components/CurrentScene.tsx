@@ -93,12 +93,25 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
         }
     }, [currentCharIndex, isSpeaking]);
 
+    // Clear speech when component mounts or unmounts
     useEffect(() => {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
         return () => {
-            if (window.speechSynthesis) {
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
                 window.speechSynthesis.cancel();
             }
         };
+    }, []); // Only on mount/unmount
+
+    // Also cancel when scene changes
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+            setCurrentCharIndex(-1);
+        }
     }, [currentScene]);
 
     const handleSpeak = () => {
