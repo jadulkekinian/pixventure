@@ -22,6 +22,7 @@ const eslintConfig = [
       "@typescript-eslint/no-non-null-assertion": "warn",
       "@typescript-eslint/ban-ts-comment": "warn",
       "@typescript-eslint/prefer-as-const": "warn",
+      "@typescript-eslint/no-floating-promises": "off",
 
       // React 相关规则
       "react-hooks/exhaustive-deps": "warn", // Changed from off to warn
