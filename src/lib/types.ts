@@ -68,7 +68,6 @@ export interface SceneDisplayProps {
 
 export interface CurrentSceneProps {
     currentScene?: string;
-    displayedText?: string;
     isTyping?: boolean;
     translations?: {
         currentScene: string;
@@ -80,8 +79,11 @@ export interface CurrentSceneProps {
 export interface CommandInputProps {
     onSend?: (command: string) => void;
     isDisabled?: boolean;
-    isLoading?: boolean;
     placeholder?: string;
+    translations?: {
+        inputPlaceholder: string;
+        exampleCommands: string;
+    };
 }
 
 export interface StartScreenProps {

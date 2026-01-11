@@ -222,11 +222,11 @@ export default function PixVentureGame() {
               {/* Left Column: Visuals & Story */}
               <div className="lg:col-span-8 flex flex-col gap-6 min-h-0">
                 <div className="relative aspect-video rounded-xl overflow-hidden border-4 border-yellow-400/20 bg-slate-900 shadow-2xl">
-                  {gameState.sceneImage ? (
+                  {sceneImage ? (
                     <img
-                      src={gameState.sceneImage}
+                      src={sceneImage}
                       alt="Current Scene"
-                      className={`w-full h-full object-cover transition-opacity duration-1000 ${gameState.isGeneratingImage ? 'opacity-40' : 'opacity-100'}`}
+                      className={`w-full h-full object-cover transition-opacity duration-1000 ${isGeneratingImage ? 'opacity-40' : 'opacity-100'}`}
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-4">
@@ -234,7 +234,7 @@ export default function PixVentureGame() {
                       <p className="text-xs font-pixel tracking-widest uppercase">Waiting for vision...</p>
                     </div>
                   )}
-                  {gameState.isGeneratingImage && (
+                  {isGeneratingImage && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
                       <div className="text-center">
                         <motion.div
@@ -249,26 +249,19 @@ export default function PixVentureGame() {
                     </div>
                   )}
                 </div>
-                <CurrentScene
-                  text={gameState.currentScene}
-                  isLoading={gameState.isTyping}
-                />
+                <CurrentScene />
               </div>
 
               {/* Right Column: Adventure Log */}
               <div className="lg:col-span-4 min-h-0">
-                <AdventureLog logs={gameState.logs} />
+                <AdventureLog />
               </div>
             </main>
 
             {/* Fixed Footer: Command Input */}
             <footer className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent z-50">
               <div className="max-w-4xl mx-auto">
-                <CommandInput
-                  onSend={handleCommand}
-                  isDisabled={gameState.isTyping || gameState.isGeneratingImage}
-                  isLoading={gameState.isTyping}
-                />
+                <CommandInput onSend={handleCommand} />
               </div>
             </footer>
           </motion.div>
