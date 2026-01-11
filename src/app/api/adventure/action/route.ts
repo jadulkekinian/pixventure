@@ -108,46 +108,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Manual instantiation to bypass the problematic loadConfig() file check
-    const zai = new ZAI({
-      apiKey: zaiApiKey,
-      baseUrl: process.env.ZAI_BASE_URL || 'https://api.z.ai/v1'
-    });
+    const baseUrl = process.env.ZAI_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4';
 
     // Generate story and image in parallel for better performance
-    // Use the command and previous scene to create a specific image prompt
     const imagePromptPreview = `${previousScene.substring(0, 200)}. Player action: ${command}. Pixel art style, fantasy video game scene, retro RPG aesthetic, 16-bit graphics`;
 
-    const [storyCompletion, imageResponse] = await Promise.all([
-      // Generate story response
-      zai.chat.completions.create({
-        messages: [
-          {
-            role: 'assistant',
-            content: lang.system,
-          },
-          {
-            role: 'user',
-            content: `Previous scene: ${previousScene}\n\nPlayer action: ${command}\n\nContinue the story based on this action. Describe what happens next.`,
-          },
-        ],
-        thinking: { type: 'disabled' },
+    const [storyResponse, imageResponse] = await Promise.all([
+      // 1. Generate story continuation (Chat Completion)
+      fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${zaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'glm-4',
+          messages: [
+            { role: 'assistant', content: lang.system },
+            {
+              role: 'user',
+              content: `Previous scene: ${previousScene}\n\nPlayer action: ${command}\n\nContinue the story based on this action. Describe what happens next.`
+            },
+          ],
+        }),
       }),
-      // Generate image in parallel
-      zai.images.generations.create({
-        prompt: `${imagePromptPreview}. Detailed game environment, magical atmosphere, cinematic view, game screenshot style, vibrant colors, ${langCode} text, digital art`,
-        size: '1344x768',
+
+      // 2. Generate image (Text-to-Image)
+      fetch(`${baseUrl}/images/generations`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${zaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'cogview-3',
+          prompt: `${imagePromptPreview}. Detailed game environment, magical atmosphere, cinematic view, game screenshot style, vibrant colors, ${langCode} text, digital art`,
+          size: '1024x1024'
+        }),
       }),
     ]);
 
-    const story = storyCompletion.choices[0]?.message?.content;
+    if (!storyResponse.ok || !imageResponse.ok) {
+      const storyErr = !storyResponse.ok ? await storyResponse.text() : null;
+      const imageErr = !imageResponse.ok ? await imageResponse.text() : null;
+      logger.error('API call failed', { storyErr, imageErr });
+      throw new AIGenerationError(`API reported error: ${storyErr || imageErr}`);
+    }
+
+    const storyData = await storyResponse.json();
+    const imageData = await imageResponse.json();
+
+    const story = storyData.choices?.[0]?.message?.content;
     if (!story) {
       throw new AIGenerationError('No story content generated');
     }
 
-    const imageBase64 = imageResponse.data[0]?.base64;
+    const imageBase64 = imageData.data?.[0]?.url || imageData.data?.[0]?.b64_json || imageData.data?.[0]?.base64;
     if (!imageBase64) {
-      throw new AIGenerationError('No image generated');
+      logger.error('Image response format unknown', { imageData });
+      throw new AIGenerationError('No image generated (format mismatch)');
     }
 
     // Save image to disk instead of using base64
