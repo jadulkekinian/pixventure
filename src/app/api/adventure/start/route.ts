@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     // Manual instantiation to bypass the problematic loadConfig() file check
     const zai = new ZAI({
       apiKey: zaiApiKey,
-      baseUrl: process.env.ZAI_BASE_URL || 'https://api.z.ai/v1'
+      baseUrl: process.env.ZAI_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4'
     });
 
     // Generate story and image in parallel for better performance
