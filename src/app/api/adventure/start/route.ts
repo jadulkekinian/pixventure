@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
           
           CRITICAL: Also include RPG metadata at the end in this EXACT format:
           [[RPG:{"hpChange":0,"xpGain":0,"item":null,"actions":["Look around","Check pack","Walk"],"end":null,"day":1,"time":"morning","safe":true,"enemy":null}]]
+          - 'hpChange': 0
           - 'day': 1
           - 'time': 'morning'
           - 'safe': true (initial zone is always safe)
