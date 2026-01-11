@@ -8,129 +8,55 @@ export const maxDuration = 60; // Allow 60 seconds for AI generation
 
 const languageInstructions = {
   en: {
-    system: `You are a creative adventure game dungeon master. Create a rich, immersive text adventure game story in a fantasy world.
-
-Your role is to:
-1. Create an exciting opening scene for a fantasy adventure
-2. Describe the environment vividly with sensory details
-3. Introduce interesting characters, objects, and locations
-4. Present clear choices and paths for the player
-5. Keep the story engaging with plot hooks and mysteries
-6. Respond to player actions with consequences and new discoveries
-
-Style guidelines:
-- Write 3-4 paragraphs for each scene
-- Include descriptions of sights, sounds, and atmosphere
-- End with hints about what the player can do
-- Be creative with magical creatures and fantasy elements
-- Make it feel like an epic adventure
-
-IMPORTANT: You are writing a text adventure game. Do not include any meta-commentary about being an AI or game system. Just write the story creatively.`,
-    user: 'Start a new fantasy adventure. The player begins standing at the entrance of an ancient, mysterious dungeon. Describe the scene vividly.',
+    system: "You are a creative dungeon master for a fantasy text adventure. Create an immersive opening scene.",
+    user: "Start a fantasy adventure. The player is at the entrance of a mysterious ancient dungeon.",
   },
   id: {
-    system: `Anda adalah penggerak permainan dungeon master yang kreatif. Buatlah cerita permainan petualangan teks yang kaya dan imersif di dunia fantasi.
-
-Peran Anda adalah:
-1. Membuat adegan pembuka yang menarik untuk petualangan fantasi
-2. Mendeskripsikan lingkungan dengan rinci menggunakan detail sensoris
-3. Memperkenalkan karakter, objek, dan lokasi yang menarik
-4. Menyajikan pilihan dan jalur yang jelas bagi pemain
-5. Menjaga cerita tetap menarik dengan alur cerita dan misteri
-6. Merespons aksi pemain dengan konsekuensi dan penemuan baru
-
-Panduan gaya:
-- Tulis 3-4 paragraf untuk setiap adegan
-- Sertakan deskripsi tentang pemandangan, suara, dan suasana
-- Akhiri dengan petunjuk tentang apa yang bisa dilakukan pemain
-- Berkreasi dengan makhluk magis dan elemen fantasi
-- Buat terasa seperti petualangan epik
-
-PENTING: Anda menulis permainan petualangan teks. Jangan sertakan komentar meta tentang menjadi AI atau sistem permainan. Hanya tulis cerita secara kreatif.`,
-    user: 'Mulai petualangan fantasi baru. Pemain mulai berdiri di pintu masuk dungeon kuno yang misterius. Deskripsikan adegan dengan rinci.',
+    system: "Anda adalah dungeon master kreatif untuk petualangan teks fantasi. Buat adegan pembuka yang imersif.",
+    user: "Mulai petualangan fantasi. Pemain berada di depan pintu masuk dungeon kuno yang misterius.",
   },
   ja: {
-    system: `あなたは創造的なアドベンチャーゲームのダンジョンマスターです。ファンタジーワールドで豊かで没入感のあるテキストアドベンチャーゲームのストーリーを作成してください。
-
-あなたの役割：
-1. ファンタジーアドベンチャーのエキサイティングなオープニングシーンを作成する
-2. 感覚的な詳細を使って環境を生き生きと描写する
-3. 興味深いキャラクター、物体、場所を紹介する
-4. プレイヤーにとって明確な選択肢と道筋を提示する
-5. プロットフックと謎でストーリーを魅力的に保つ
-6. プレイヤーの行動に結果と新しい発見で応答する
-
-スタイルガイドライン：
-- 各シーンで3〜4段落を書く
-- 視覚、聴覚、雰囲気の説明を含める
-- プレイヤーができることについてのヒントで終わる
-- 魔法の生き物とファンタジー要素で創造的になる
-- 素晴らしいアドベンチャーのように感じさせる
-
-重要：あなたはテキストアドベンチャーゲームを書いています。AIやゲームシステムについてのメタコメントを含めないでください。ただ創造的にストーリーを書いてください。`,
-    user: '新しいファンタジーアドベンチャーを開始してください。プレイヤーは謎めいた古代のダンジョンの入り口に立っています。シーンを生き生きと描写してください。',
+    system: "あなたはファンタジーテキストアドベンチャーのダンジョンマスターです。没入感のあるオープニングシーンを作成してください。",
+    user: "ファンタジーアドベンチャーを開始します。プレイヤーは謎めいた古代のダンジョンの入り口にいます。",
   },
 };
-
-// Generate image using Pollinations.ai and return Base64
-async function generateImageBase64(prompt: string): Promise<string | null> {
-  try {
-    const cleanPrompt = prompt.replace(/[^\w\s,]/gi, '');
-    const seed = Math.floor(Math.random() * 1000000);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=768&height=768&seed=${seed}&nologo=true`;
-
-    const response = await fetch(imageUrl);
-    if (!response.ok) return null;
-
-    const buffer = await response.arrayBuffer();
-    return `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
-  } catch (error) {
-    logger.warn('Failed to generate image base64', { error });
-    return null;
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const validatedData = startAdventureSchema.parse(body);
-    const { language } = validatedData;
+    const { language } = startAdventureSchema.parse(body);
 
-    logger.info('Starting new adventure', { language });
-
-    const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
     const groqApiKey = process.env.GROQ_API_KEY;
-
-    if (!groqApiKey) {
-      return NextResponse.json({ success: false, error: 'GROQ_API_KEY missing' }, { status: 500 });
-    }
+    if (!groqApiKey) return NextResponse.json({ success: false, error: 'Key missing' }, { status: 500 });
 
     const groq = new Groq({ apiKey: groqApiKey });
+    const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
-    // Parallel execution
-    const [storyResponse, imageBase64] = await Promise.all([
-      groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: lang.system },
-          { role: 'user', content: lang.user },
-        ],
-        temperature: 0.8,
-        max_tokens: 1024,
-      }),
-      generateImageBase64('pixel art fantasy dungeon entrance, mysterious stone ruins, cinematic retro RPG style')
-    ]);
+    // Generate story
+    const storyResponse = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: lang.system + " 3-4 paragraphs. Use vivid descriptions. End with a question or choices." },
+        { role: 'user', content: lang.user },
+      ],
+      temperature: 0.8,
+    });
 
     const story = storyResponse.choices?.[0]?.message?.content;
-    if (!story) throw new AIGenerationError('No story generated');
+    if (!story) throw new Error('No story generated');
+
+    // Return direct Pollinations URL with randomized seed
+    // Using simple English prompt for highest compatibility
+    const seed = Math.floor(Math.random() * 999999);
+    const imageUrl = `https://image.pollinations.ai/prompt/pixel%20art%20fantasy%20dungeon%20entrance%20mysterious%20stone%20gate%20glowing%20runes%20RPG%20retro%20game?width=1024&height=1024&seed=${seed}&nologo=true`;
 
     return NextResponse.json({
       success: true,
       story,
-      imageUrl: imageBase64 || '',
+      imageUrl,
     });
   } catch (error: unknown) {
-    logger.error('Error starting adventure', { error });
+    logger.error('Start adventure error', { error });
     return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
   }
 }
