@@ -71,7 +71,7 @@ PENTING: Selalu tetap sebagai narator petualangan. Jangan pernah memecahkan dind
 - 各応答で3〜4段落を書く
 - プレイヤーの行動の結果として何が起こるかを描写する
 - 視覚、聴覚、匂い、雰囲気を含める
-- 探索する新しい要素を紹介する（アイテム、NPC、場所）
+- 探索する新しい要素を紹介する（アイテム、NPC,場所）
 - さらなる行動や発見のヒントで終わる
 - 魔法の効果とファンタジー要素で創造的になる
 - プレイヤーの行動が理にかなっていない場合、結果を説明するか、代替案を提案する
@@ -80,6 +80,19 @@ PENTING: Selalu tetap sebagai narator petualangan. Jangan pernah memecahkan dind
 重要：常にアドベンチャーナレーターとしてキャラクターを保ってください。第四の壁を壊したり、AIであることに言言及したりしないでください。彼らの行動に基づいて物語を自然に続けてください。`,
   },
 };
+
+// Generate image using Pollinations.ai (Truly FREE, no keys needed)
+async function generateImageWithPollinations(prompt: string): Promise<string | null> {
+  try {
+    const cleanPrompt = prompt.replace(/[^\w\s,]/gi, ''); // Remove special characters
+    const seed = Math.floor(Math.random() * 1000000);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true`;
+    return imageUrl;
+  } catch (error) {
+    logger.warn('Failed to generate image with Pollinations AI', { error });
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -109,29 +122,45 @@ export async function POST(request: NextRequest) {
     // Initialize Groq client
     const groq = new Groq({ apiKey: groqApiKey });
 
-    // Generate story continuation with Groq
-    const storyResponse = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: lang.system },
-        {
-          role: 'user',
-          content: `Previous scene: ${previousScene}\n\nPlayer action: ${command}\n\nContinue the story based on this action. Describe what happens next.`
-        },
-      ],
-      temperature: 0.8,
-      max_tokens: 1024,
-    });
+    // Parallel calls for story and image
+    const [storyResult, translationResult] = await Promise.all([
+      // 1. Generate story continuation with Groq
+      groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: lang.system },
+          {
+            role: 'user',
+            content: `Previous scene: ${previousScene}\n\nPlayer action: ${command}\n\nContinue the story based on this action. Describe what happens next.`
+          },
+        ],
+        temperature: 0.8,
+        max_tokens: 1024,
+      }),
 
-    const story = storyResponse.choices?.[0]?.message?.content;
+      // 2. Translate action to English for better image generation prompt
+      language !== 'en' ? groq.chat.completions.create({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: 'Translate the following user command to a short English descriptive phrase for image generation. Return only the English phrase.' },
+          { role: 'user', content: command },
+        ],
+        temperature: 0.1,
+        max_tokens: 50,
+      }) : Promise.resolve(null),
+    ]);
+
+    const story = storyResult.choices?.[0]?.message?.content;
     if (!story) {
       throw new AIGenerationError('No story content generated');
     }
 
-    // Generate Pollinations image URL (External URL, best for Vercel)
-    const imagePrompt = `pixel art fantasy scene, ${command}, dungeon adventure, retro RPG game scene, 16-bit graphics style, magical atmosphere, detailed environment, dark fantasy`;
-    const seed = Math.floor(Math.random() * 1000000);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux`;
+    // Use translated command or original if already English
+    const englishCommand = translationResult?.choices?.[0]?.message?.content || command;
+
+    // Generate Pollinations image URL
+    const imagePrompt = `pixel art fantasy, ${englishCommand}, retro RPG style, 16-bit, detailed background, immersive lighting`;
+    const imageUrl = await generateImageWithPollinations(imagePrompt);
 
     return NextResponse.json({
       success: true,

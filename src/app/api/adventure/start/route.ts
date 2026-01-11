@@ -72,6 +72,26 @@ PENTING: Anda menulis permainan petualangan teks. Jangan sertakan komentar meta 
   },
 };
 
+// Generate image using Pollinations.ai (Truly FREE, no keys needed)
+async function generateImageWithPollinations(prompt: string): Promise<string | null> {
+  try {
+    // Simplified prompt for better results
+    const cleanPrompt = prompt.replace(/[^\w\s,]/gi, ''); // Remove special characters
+    const seed = Math.floor(Math.random() * 1000000);
+
+    // Using a more reliable pollinations endpoint format
+    // No model param = more stable default
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true`;
+
+    // We fetch it on the server to make sure it exists, then return the URL
+    // Actually, returning the URL directly is fine, but let's make it a simple URL
+    return imageUrl;
+  } catch (error) {
+    logger.warn('Failed to generate image with Pollinations AI', { error });
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Parse and validate request body
@@ -116,16 +136,14 @@ export async function POST(request: NextRequest) {
       throw new AIGenerationError('No story content generated');
     }
 
-    // Generate Pollinations image URL (Super fast, free, no server-side fetch needed for base64)
-    // Using a random seed for uniqueness
-    const imagePrompt = 'pixel art fantasy dungeon entrance, ancient mysterious stone gate, glowing runes, torch light, retro RPG game scene, 16-bit graphics style, detailed environment, magical atmosphere, dark fantasy';
-    const seed = Math.floor(Math.random() * 1000000);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux`;
+    // Fixed prompt in English for the starting scene
+    const imagePrompt = 'pixel art, ancient stone dungeon entrance, glowing ruins, weathered vines, fantasy adventure RPG, 16-bit colors, retro game style, cinematic lighting';
+    const imageUrl = await generateImageWithPollinations(imagePrompt);
 
     return NextResponse.json({
       success: true,
       story,
-      imageUrl, // Return external URL directly (best for Vercel)
+      imageUrl: imageUrl || '',
     });
   } catch (error: unknown) {
     // Handle validation errors
@@ -157,7 +175,7 @@ export async function POST(request: NextRequest) {
 
     // Handle unknown errors
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error starting adventure', { error: errorMessage, stack: (error instanceof Error ? error.stack : undefined) });
+    logger.error('Error starting adventure', { error: errorMessage });
     return NextResponse.json(
       {
         success: false,
