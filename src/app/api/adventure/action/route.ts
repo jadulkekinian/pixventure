@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { actionRequestSchema } from '@/lib/validation';
 import { ValidationError, AIGenerationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { saveBase64Image } from '@/lib/image-utils';
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 
 export const maxDuration = 60; // Allow 60 seconds for AI generation
 
@@ -93,89 +92,47 @@ export async function POST(request: NextRequest) {
 
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
-    const googleApiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!googleApiKey) {
-      logger.error('GOOGLE_AI_API_KEY is not configured');
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+      logger.error('GROQ_API_KEY is not configured');
       return NextResponse.json(
         {
           success: false,
-          error: 'AI service is not configured. Please add GOOGLE_AI_API_KEY to your Vercel environment variables.',
-          story: 'As you move forward, the dungeon whispers secrets unknown... [DEMO MODE: Please configure GOOGLE_AI_API_KEY for the full experience]',
+          error: 'AI service is not configured. Please add GROQ_API_KEY to your Vercel environment variables.',
+          story: 'As you move forward, the dungeon whispers secrets unknown... [DEMO MODE: Please configure GROQ_API_KEY for the full experience]',
           imageUrl: '',
         },
         { status: 500 }
       );
     }
 
-    // Initialize Google GenAI client
-    const ai = new GoogleGenAI({ apiKey: googleApiKey });
+    // Initialize Groq client
+    const groq = new Groq({ apiKey: groqApiKey });
 
-    // Generate story and image in parallel for better performance
-    const imagePrompt = `${previousScene.substring(0, 150)}. Player action: ${command}. Pixel art style, fantasy video game scene, retro RPG aesthetic, 16-bit graphics, detailed game environment, magical atmosphere`;
-
-    const [storyResult, imageResult] = await Promise.allSettled([
-      // 1. Generate story continuation (Gemini 2.0 Flash)
-      ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: `${lang.system}\n\nPrevious scene: ${previousScene}\n\nPlayer action: ${command}\n\nContinue the story based on this action. Describe what happens next.` }],
-          },
-        ],
-      }),
-
-      // 2. Generate image (Imagen 3)
-      ai.models.generateImages({
-        model: 'imagen-3.0-generate-002',
-        prompt: imagePrompt,
-        config: {
-          numberOfImages: 1,
-          aspectRatio: '1:1',
-          outputOptions: {
-            mimeType: 'image/png',
-          },
+    // Generate story continuation using Llama 3.3 70B
+    const storyResponse = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: lang.system },
+        {
+          role: 'user',
+          content: `Previous scene: ${previousScene}\n\nPlayer action: ${command}\n\nContinue the story based on this action. Describe what happens next.`
         },
-      }),
-    ]);
+      ],
+      temperature: 0.8,
+      max_tokens: 1024,
+    });
 
-    // Handle story result
-    let story: string;
-    if (storyResult.status === 'fulfilled') {
-      story = storyResult.value.text || '';
-      if (!story) {
-        throw new AIGenerationError('No story content generated');
-      }
-    } else {
-      logger.error('Story generation failed', { error: storyResult.reason });
-      throw new AIGenerationError(`Story generation failed: ${storyResult.reason}`);
+    const story = storyResponse.choices?.[0]?.message?.content;
+    if (!story) {
+      throw new AIGenerationError('No story content generated');
     }
 
-    // Handle image result
-    let imageUrl = '';
-    if (imageResult.status === 'fulfilled') {
-      const imageData = imageResult.value.generatedImages?.[0];
-      if (imageData?.image?.imageBytes) {
-        // Convert bytes to base64
-        const base64Image = Buffer.from(imageData.image.imageBytes).toString('base64');
-        try {
-          imageUrl = await saveBase64Image(base64Image, 'action');
-          logger.info('Image saved successfully', { imageUrl });
-        } catch (imageError) {
-          logger.warn('Failed to save image, using fallback', { error: imageError });
-          imageUrl = `data:image/png;base64,${base64Image}`;
-        }
-      } else {
-        logger.warn('No image data in response');
-      }
-    } else {
-      logger.warn('Image generation failed, continuing without image', { error: imageResult.reason });
-    }
-
+    // Groq doesn't support image generation
     return NextResponse.json({
       success: true,
       story,
-      imageUrl,
+      imageUrl: '', // No image generation with Groq
     });
   } catch (error: unknown) {
     // Handle validation errors
