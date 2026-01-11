@@ -118,7 +118,7 @@ export default function PixVentureGame() {
           await saveScene({
             adventureId: newAdventureId,
             sceneNumber: 1,
-            storyText: data.story,
+            storyText: data.story || '',
             imageUrl: data.imageUrl || ''
           });
         }
@@ -161,7 +161,7 @@ export default function PixVentureGame() {
         await saveScene({
           adventureId,
           sceneNumber: logs.length + 1,
-          storyText: data.story,
+          storyText: data.story || '',
           imageUrl: data.imageUrl || '',
           command
         });
@@ -258,15 +258,16 @@ export default function PixVentureGame() {
                 <div className="relative aspect-video rounded-xl overflow-hidden border-4 border-yellow-400/20 bg-slate-900 shadow-2xl">
                   {sceneImage && !imageError ? (
                     <img
+                      key={sceneImage}
                       src={sceneImage}
                       alt="Current Scene"
                       className={`w-full h-full object-cover transition-opacity duration-1000 ${isGeneratingImage ? 'opacity-40' : 'opacity-100'}`}
                       onLoad={() => {
-                        console.log('Image loaded successfully:', sceneImage);
+                        console.log('Image Vision Loaded:', sceneImage);
                         updateGameState({ isGeneratingImage: false });
                       }}
                       onError={(e) => {
-                        console.error('Image failed to load:', sceneImage, e);
+                        console.error('Image Vision Error:', sceneImage);
                         setImageError(true);
                         updateGameState({ isGeneratingImage: false });
                       }}
