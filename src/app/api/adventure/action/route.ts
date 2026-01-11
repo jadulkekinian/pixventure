@@ -106,7 +106,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const zai = await ZAI.create();
+    // Manual instantiation to bypass the problematic loadConfig() file check
+    const zai = new ZAI({
+      apiKey: zaiApiKey,
+      baseUrl: process.env.ZAI_BASE_URL || 'https://api.z-ai.cn/v1'
+    });
 
     // Generate story and image in parallel for better performance
     // Use the command and previous scene to create a specific image prompt
