@@ -10,12 +10,13 @@ import { translations } from '@/lib/translations';
 import { logger } from '@/lib/logger';
 
 // Modular Components
-import StartScreen from '@/components/StartScreen';
-import AdventureLog from '@/components/AdventureLog';
-import SceneDisplay from '@/components/SceneDisplay';
-import CurrentScene from '@/components/CurrentScene';
-import CommandInput from '@/components/CommandInput';
+import { StartScreen } from '@/components/StartScreen';
+import { AdventureLog } from '@/components/AdventureLog';
+import { CurrentScene } from '@/components/CurrentScene';
+import { CommandInput } from '@/components/CommandInput';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { Button } from '@/components/ui/button';
+
 
 export default function PixVentureGame() {
   const {
@@ -211,10 +212,34 @@ export default function PixVentureGame() {
             <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0 mb-20 md:mb-24">
               {/* Left Column: Visuals & Story */}
               <div className="lg:col-span-8 flex flex-col gap-6 min-h-0">
-                <SceneDisplay
-                  imageUrl={gameState.sceneImage}
-                  isLoading={gameState.isGeneratingImage}
-                />
+                <div className="relative aspect-video rounded-xl overflow-hidden border-4 border-yellow-400/20 bg-slate-900 shadow-2xl">
+                  {gameState.sceneImage ? (
+                    <img
+                      src={gameState.sceneImage}
+                      alt="Current Scene"
+                      className={`w-full h-full object-cover transition-opacity duration-1000 ${gameState.isGeneratingImage ? 'opacity-40' : 'opacity-100'}`}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-4">
+                      <span className="text-6xl animate-pulse">🖼️</span>
+                      <p className="text-xs font-pixel tracking-widest uppercase">Waiting for vision...</p>
+                    </div>
+                  )}
+                  {gameState.isGeneratingImage && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                      <div className="text-center">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          className="text-4xl mb-4"
+                        >
+                          🌀
+                        </motion.div>
+                        <p className="text-[10px] font-pixel text-yellow-400 animate-pulse">GENERATING VISION...</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <CurrentScene
                   text={gameState.currentScene}
                   isLoading={gameState.isTyping}
