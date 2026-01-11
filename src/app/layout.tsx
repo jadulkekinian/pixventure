@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   keywords: ["PixVenture", "AI game", "adventure game", "Next.js", "TypeScript", "AI storytelling"],
   authors: [{ name: "PixVenture Team" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.jpg",
   },
   openGraph: {
     title: "Z.ai Code Scaffold",
