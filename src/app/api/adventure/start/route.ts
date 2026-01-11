@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Return direct Pollinations URL with randomized seed
     const seed = Math.floor(Math.random() * 9999999);
     const prompt = "pixel art fantasy dungeon entrance, mysterious stone gate, glowing runes, retro RPG style, highly detailed";
-    const imageUrl = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=768&height=768&seed=${seed}&nologo=true`;
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=768&height=768&seed=${seed}&nologo=true`;
 
     logger.info('Generated start adventure image URL', { imageUrl });
 
