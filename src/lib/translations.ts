@@ -24,6 +24,9 @@ export interface Translations {
     exampleCommands: string;
     adventureStarted: string;
     selectLanguage: string;
+    narrate: string;
+    stopNarration: string;
+    reading: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -47,6 +50,9 @@ export const translations: Record<Language, Translations> = {
             "Example commands: look, search, examine [item], go [direction], use [item], talk to [character]",
         adventureStarted: '🎮 Adventure Started! Type commands to explore.',
         selectLanguage: 'Select Language',
+        narrate: 'Narrate Scene',
+        stopNarration: 'Stop Narration',
+        reading: 'Reading...',
     },
     id: {
         title: 'PixVenture',
@@ -68,6 +74,9 @@ export const translations: Record<Language, Translations> = {
             "Contoh perintah: lihat, cari, periksa [item], pergi [arah], gunakan [item], bicara dengan [karakter]",
         adventureStarted: '🎮 Petualangan Dimulai! Ketik perintah untuk menjelajahi.',
         selectLanguage: 'Pilih Bahasa',
+        narrate: 'Bacakan Adegan',
+        stopNarration: 'Hentikan Narasi',
+        reading: 'Membaca...',
     },
     ja: {
         title: 'PixVenture',
@@ -89,5 +98,8 @@ export const translations: Record<Language, Translations> = {
             "例コマンド: 見る, 探す, 調べる [アイテム], [方向]へ行く, 使う [アイテム], [キャラクター]と話す",
         adventureStarted: '🎮 冒険が始まりました！コマンドを入力して探索してください。',
         selectLanguage: '言語を選択',
+        narrate: 'シーンを読み上げる',
+        stopNarration: '読み上げを停止',
+        reading: '読み上げ中...',
     },
 };

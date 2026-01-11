@@ -73,6 +73,9 @@ export interface CurrentSceneProps {
         currentScene: string;
         generatingStory: string;
         waitingForCommand: string;
+        narrate: string;
+        stopNarration: string;
+        reading: string;
     };
 }
 

@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: lang.system + " 3-4 paragraphs. Use vivid descriptions. End with a question or choices." },
+          { role: 'system', content: lang.system + " Use 3-4 paragraphs with double newlines between them for a novel-like feel. Use vivid descriptions. End with a question or choices." },
           { role: 'user', content: lang.user },
         ],
         temperature: 0.8,

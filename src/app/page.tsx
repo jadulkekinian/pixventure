@@ -245,7 +245,7 @@ export default function PixVentureGame() {
             </header>
 
             {/* Main Content Area */}
-            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0 mb-20 md:mb-24">
+            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0 mb-32 md:mb-40 pb-10">
               {/* Left Column: Visuals & Story */}
               <div className="lg:col-span-8 flex flex-col gap-6 min-h-0">
                 <div className="flex-shrink-0 relative aspect-video rounded-xl overflow-hidden border-4 border-yellow-400/20 bg-slate-900 shadow-2xl">
