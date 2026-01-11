@@ -11,32 +11,40 @@ export async function GET(request: NextRequest) {
     const height = searchParams.get('height') || '768';
 
     if (!prompt) {
+        logger.warn('Image proxy called without prompt');
         return new NextResponse('Prompt is required', { status: 400 });
     }
 
     try {
-        // Construct Pollinations URL
         const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&nologo=true`;
 
-        logger.info('Proxying image request', { prompt, seed });
+        logger.info('Proxying image request', { prompt, seed, url: pollUrl });
 
-        const response = await fetch(pollUrl);
+        const response = await fetch(pollUrl, {
+            next: { revalidate: 3600 } // Cache for 1 hour
+        });
 
         if (!response.ok) {
-            throw new Error(`Pollinations API returned ${response.status}`);
+            const errorText = await response.text();
+            logger.error('Pollinations API failure', { status: response.status, error: errorText });
+            return new NextResponse(`Pollinations API returned ${response.status}`, { status: response.status });
         }
 
-        const blob = await response.blob();
-        const headers = new Headers();
-        headers.set('Content-Type', blob.type || 'image/jpeg');
-        headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+        const contentType = response.headers.get('Content-Type') || 'image/jpeg';
+        const buffer = await response.arrayBuffer();
 
-        return new NextResponse(blob, {
+        logger.info('Proxying image successful', { contentType, bytes: buffer.byteLength });
+
+        return new NextResponse(buffer, {
             status: 200,
-            headers,
+            headers: {
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=31536000, immutable',
+                'X-Proxy-Origin': 'Pollinations.ai'
+            },
         });
-    } catch (error) {
-        logger.error('Image proxy failed', { error, prompt });
-        return new NextResponse('Failed to load image', { status: 500 });
+    } catch (error: any) {
+        logger.error('Image proxy exception', { error: error.message, stack: error.stack });
+        return new NextResponse(`Internal error: ${error.message}`, { status: 500 });
     }
 }

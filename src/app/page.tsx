@@ -8,7 +8,7 @@ import { useJDKUser } from '@/hooks/use-jdk-user';
 import { useAdventurePersistence } from '@/hooks/use-adventure-persistence';
 import { translations } from '@/lib/translations';
 import { logger } from '@/lib/logger';
-import { RefreshCw, AlertCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle, ExternalLink } from 'lucide-react';
 
 // Modular Components
 import { StartScreen } from '@/components/StartScreen';
@@ -94,7 +94,7 @@ export default function PixVentureGame() {
         currentScene: data.story,
         sceneImage: data.imageUrl,
         isTyping: false,
-        isGeneratingImage: !data.imageUrl // If no image, stop loading
+        isGeneratingImage: !!data.imageUrl
       });
 
       addLog({
@@ -147,7 +147,7 @@ export default function PixVentureGame() {
         currentScene: data.story,
         sceneImage: data.imageUrl,
         isTyping: false,
-        isGeneratingImage: !data.imageUrl
+        isGeneratingImage: !!data.imageUrl
       });
 
       addLog({
@@ -174,7 +174,6 @@ export default function PixVentureGame() {
 
   const handleRetryImage = () => {
     if (sceneImage) {
-      // Append a tiny update to the seed to force reload
       const newUrl = sceneImage.includes('&retry=')
         ? sceneImage.replace(/&retry=\d+/, `&retry=${Date.now()}`)
         : `${sceneImage}&retry=${Date.now()}`;
@@ -183,6 +182,19 @@ export default function PixVentureGame() {
       setImageError(false);
       setImageRetryCount(prev => prev + 1);
     }
+  };
+
+  // Helper to get raw Pollinations URL from proxy URL for direct fallback
+  const getDirectImageUrl = () => {
+    if (sceneImage && sceneImage.includes('/api/image-proxy')) {
+      const params = new URLSearchParams(sceneImage.split('?')[1]);
+      const prompt = params.get('prompt');
+      const seed = params.get('seed');
+      if (prompt) {
+        return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=768&height=768&seed=${seed || '123'}&nologo=true`;
+      }
+    }
+    return sceneImage;
   };
 
   return (
@@ -247,8 +259,12 @@ export default function PixVentureGame() {
                       src={sceneImage}
                       alt="Current Scene"
                       className={`w-full h-full object-cover transition-opacity duration-1000 ${isGeneratingImage ? 'opacity-40' : 'opacity-100'}`}
-                      onLoad={() => updateGameState({ isGeneratingImage: false })}
-                      onError={() => {
+                      onLoad={() => {
+                        console.log('Image loaded successfully:', sceneImage);
+                        updateGameState({ isGeneratingImage: false });
+                      }}
+                      onError={(e) => {
+                        console.error('Image failed to load:', sceneImage, e);
                         setImageError(true);
                         updateGameState({ isGeneratingImage: false });
                       }}
@@ -258,15 +274,27 @@ export default function PixVentureGame() {
                       {imageError ? (
                         <>
                           <AlertCircle className="w-12 h-12 text-red-500 animate-pulse" />
-                          <p className="text-xs font-pixel tracking-widest uppercase text-red-400">Vision Failed to Load</p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleRetryImage}
-                            className="mt-2 border-yellow-400/50 text-yellow-400"
-                          >
-                            <RefreshCw className="w-3 h-3 mr-2" /> RETRY VISION
-                          </Button>
+                          <p className="text-xs font-pixel tracking-widest uppercase text-red-400">Vision Loading Error</p>
+                          <div className="flex flex-col gap-2 scale-75 md:scale-100">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRetryImage}
+                              className="border-yellow-400/50 text-yellow-400"
+                            >
+                              <RefreshCw className="w-3 h-3 mr-2" /> RETRY INTERNAL PROXY
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              asChild
+                              className="text-slate-400 text-[8px]"
+                            >
+                              <a href={getDirectImageUrl()} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="w-3 h-3 mr-2" /> OPEN DIRECT IMAGE LINK
+                              </a>
+                            </Button>
+                          </div>
                         </>
                       ) : (
                         <>
@@ -292,7 +320,6 @@ export default function PixVentureGame() {
                     </div>
                   )}
 
-                  {/* Manual Refresh Button Overlay */}
                   {sceneImage && !isGeneratingImage && !imageError && (
                     <button
                       onClick={handleRetryImage}
