@@ -20,7 +20,9 @@ export interface GameState {
     logs: LogEntry[];
     isTyping: boolean;
     isGeneratingImage: boolean;
+    isGameStarted: boolean;
 }
+
 
 // API Response types
 export interface AdventureAPIResponse {
@@ -43,32 +45,32 @@ export interface ActionRequest {
 
 // Component prop types
 export interface LanguageSelectorProps {
-    language: Language;
-    onLanguageChange: (language: Language) => void;
+    language?: Language;
+    onLanguageChange?: (language: Language) => void;
     variant?: 'default' | 'compact';
 }
 
 export interface AdventureLogProps {
-    logs: LogEntry[];
-    translations: {
+    logs?: LogEntry[];
+    translations?: {
         adventureLog: string;
         noAdventures: string;
     };
 }
 
 export interface SceneDisplayProps {
-    sceneImage: string;
-    isGeneratingImage: boolean;
-    translations: {
+    sceneImage?: string;
+    isGeneratingImage?: boolean;
+    translations?: {
         sceneWillAppearHere: string;
     };
 }
 
 export interface CurrentSceneProps {
-    currentScene: string;
-    displayedText: string;
-    isTyping: boolean;
-    translations: {
+    currentScene?: string;
+    displayedText?: string;
+    isTyping?: boolean;
+    translations?: {
         currentScene: string;
         generatingStory: string;
         waitingForCommand: string;
@@ -76,19 +78,18 @@ export interface CurrentSceneProps {
 }
 
 export interface CommandInputProps {
-    inputValue: string;
-    onInputChange: (value: string) => void;
-    onSubmit: () => void;
-    isDisabled: boolean;
-    translations: {
-        inputPlaceholder: string;
-        exampleCommands: string;
-    };
+    onSend?: (command: string) => void;
+    isDisabled?: boolean;
+    isLoading?: boolean;
+    placeholder?: string;
 }
 
 export interface StartScreenProps {
     language: Language;
-    onLanguageChange: (language: Language) => void;
+    onLanguageChange?: (language: Language) => void;
     onStartGame: () => void;
     mounted: boolean;
+    username?: string;
+    isLoading?: boolean;
 }
+

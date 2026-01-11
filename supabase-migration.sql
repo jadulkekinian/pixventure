@@ -14,12 +14,15 @@ CREATE TABLE IF NOT EXISTS adventures (
     last_played_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraint: only one active adventure per member
-    CONSTRAINT unique_active_adventure UNIQUE (member_id, is_active) 
-      WHERE is_active = true
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Constraint: only one active adventure per member
+-- Partial unique index (PostgreSQL syntax)
+CREATE UNIQUE INDEX IF NOT EXISTS unique_active_adventure 
+ON adventures (member_id) 
+WHERE (is_active = true);
+
 
 -- Adventure scenes table (stores game history)
 CREATE TABLE IF NOT EXISTS adventure_scenes (

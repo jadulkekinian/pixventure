@@ -23,8 +23,9 @@ interface AdventureStore extends GameState {
     setTyping: (isTyping: boolean) => void;
     setGeneratingImage: (isGenerating: boolean) => void;
     updateGameState: (state: Partial<GameState>) => void;
-    reset: () => void;
+    resetGame: () => void;
 }
+
 
 const initialState: GameState = {
     currentScene: '',
@@ -32,7 +33,9 @@ const initialState: GameState = {
     logs: [],
     isTyping: false,
     isGeneratingImage: false,
+    isGameStarted: false,
 };
+
 
 export const useGameStore = create<AdventureStore>((set) => ({
     // Initial state
@@ -64,11 +67,12 @@ export const useGameStore = create<AdventureStore>((set) => ({
             ...newState,
         })),
 
-    reset: () =>
+    resetGame: () =>
         set({
             ...initialState,
             gameStarted: false,
             showStartScreen: true,
             inputValue: '',
         }),
+
 }));

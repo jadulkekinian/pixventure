@@ -11,9 +11,17 @@ const LANGUAGE_OPTIONS: { code: Language; label: string; flag: string }[] = [
     { code: 'ja', label: '日本語', flag: '🇯🇵' },
 ];
 
-export function LanguageSelector({ language, onLanguageChange, variant = 'default' }: LanguageSelectorProps) {
+import { useGameStore } from '@/hooks/use-game-store';
+
+export function LanguageSelector({ language: propLanguage, onLanguageChange: propOnChange, variant = 'default' }: LanguageSelectorProps) {
+    const { language: storeLanguage, setLanguage: storeSetLanguage } = useGameStore();
+
+    const language = (propLanguage || storeLanguage) as Language;
+    const onLanguageChange = propOnChange || storeSetLanguage;
+
     const t = translations[language];
     const isCompact = variant === 'compact';
+
 
     return (
         <div className={isCompact ? '' : 'mb-8'}>
@@ -31,8 +39,8 @@ export function LanguageSelector({ language, onLanguageChange, variant = 'defaul
                         variant={language === lang.code ? 'default' : 'outline'}
                         size="sm"
                         className={`${language === lang.code
-                                ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-2 border-yellow-300'
-                                : 'bg-black/60 border-2 border-gray-600 text-gray-300 hover:border-yellow-400'
+                            ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-2 border-yellow-300'
+                            : 'bg-black/60 border-2 border-gray-600 text-gray-300 hover:border-yellow-400'
                             } ${isCompact ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-xs'} font-bold font-pixel`}
                     >
                         {lang.flag} {isCompact ? lang.code.toUpperCase() : lang.label}
