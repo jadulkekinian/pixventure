@@ -56,11 +56,18 @@ class IframeBridge {
      * Handle incoming postMessage events
      */
     private handleMessage(event: MessageEvent<PostMessageData>): void {
+        const selfOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+
         // Validate origin for security
-        if (this.parentOrigin !== '*' && event.origin !== this.parentOrigin) {
-            logger.warn('Rejected message from unauthorized origin', { origin: event.origin });
+        // Allow self-origin or correctly configured external origin
+        if (this.parentOrigin !== '*' && event.origin !== this.parentOrigin && event.origin !== selfOrigin) {
+            // Only warn if we're actually in an iframe and it's not a self-message
+            if (this.isInIframe()) {
+                logger.warn('Rejected message from unauthorized origin', { origin: event.origin });
+            }
             return;
         }
+
 
         const { type, payload } = event.data;
 

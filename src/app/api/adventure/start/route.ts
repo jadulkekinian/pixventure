@@ -83,35 +83,53 @@ export async function POST(request: NextRequest) {
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
     const langCode = language === 'en' ? 'English' : language === 'id' ? 'Bahasa Indonesia' : 'Japanese';
 
-    const zai = await ZAI.create();
+    const zaiApiKey = process.env.Z_AI_API_KEY;
+    if (!zaiApiKey) {
+      logger.error('Z_AI_API_KEY is not configured');
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'AI service is not configured. Please add Z_AI_API_KEY to your Vercel environment variables.',
+          story: 'As you move forward, the dungeon whispers secrets unknown... [DEMO MODE: Please configure Z_AI_API_KEY for the full experience]',
+          imageUrl: '',
+        },
+        { status: 500 }
+      );
+    }
 
-    // Generate initial story
-    const storyCompletion = await zai.chat.completions.create({
-      messages: [
-        {
-          role: 'assistant',
-          content: lang.system,
-        },
-        {
-          role: 'user',
-          content: lang.user,
-        },
-      ],
-      thinking: { type: 'disabled' },
-    });
+    const zai = await ZAI.create({ apiKey: zaiApiKey });
+
+    // Generate story and image in parallel for better performance
+    // For the start adventure, previousScene and command are not applicable,
+    // so we use the initial user prompt for image generation.
+    const imagePromptPreview = `${lang.user.substring(0, 200)}. Pixel art style, fantasy video game scene, retro RPG aesthetic, 16-bit graphics`;
+
+    const [storyCompletion, imageResponse] = await Promise.all([
+      // Generate story response
+      zai.chat.completions.create({
+        messages: [
+          {
+            role: 'assistant',
+            content: lang.system,
+          },
+          {
+            role: 'user',
+            content: lang.user,
+          },
+        ],
+        thinking: { type: 'disabled' },
+      }),
+      // Generate image in parallel
+      zai.images.generations.create({
+        prompt: `${imagePromptPreview}. Detailed game environment, magical atmosphere, cinematic view, game screenshot style, vibrant colors, ${langCode} text, digital art`,
+        size: '1344x768',
+      }),
+    ]);
 
     const story = storyCompletion.choices[0]?.message?.content;
     if (!story) {
       throw new AIGenerationError('No story content generated');
     }
-
-    // Generate scene image from the story
-    const imagePrompt = `${story.substring(0, 500)}. Pixel art style, fantasy video game scene, retro RPG aesthetic, 16-bit graphics, detailed game environment, magical atmosphere, cinematic view, game screenshot style, vibrant colors, ${langCode} text, digital art`;
-
-    const imageResponse = await zai.images.generations.create({
-      prompt: imagePrompt,
-      size: '1344x768',
-    });
 
     const imageBase64 = imageResponse.data[0]?.base64;
     if (!imageBase64) {
