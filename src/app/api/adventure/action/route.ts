@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
           - 'xpGain': number of XP earned.
           - 'item': name of item found or null.
           - 'actions': 3 short quick contextual actions.
-          - 'end': 'win' if goal achieved, 'lose' if HP hits 0 or fatal event, else null.
+          - 'end': Use 'win' ONLY if the overall adventure goal is achieved. Use 'lose' ONLY if the player character dies or the mission is permanently failed. Use null for normal scenes (even if a monster dies).
           - 'day': Current adventure day.
           - 'time': 'morning', 'afternoon', 'evening', or 'night'.
           - 'safe': true if the location is safe (Shrine, Camp, Secure Room), else false.
@@ -45,6 +45,8 @@ export async function POST(request: NextRequest) {
           LOGIC GUARD: Reject impossible or anachronistic actions narratively. Explain why it failed and apply a small HP penalty for "mental strain" if the command is insane.
           
           COMBAT RULES: If an enemy is active, player actions should damage the enemy or defend. The AI must manage enemy HP in the metadata. If enemy HP hits 0, it is defeated and you must set 'enemy' to null.
+          
+          SAFEGUARD: Do NOT reduce player HP (hpChange) when a monster is defeated, unless the monster used a self-destruct move. Victory should usually reward XP (xpGain > 0).
           
           REST RULE: If the player chooses to 'Rest' in a safe zone, provide a positive 'hpChange' (e.g. +50) to heal them.
           
