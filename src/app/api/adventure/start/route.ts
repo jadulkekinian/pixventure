@@ -45,12 +45,12 @@ export async function POST(request: NextRequest) {
     const story = storyResponse.choices?.[0]?.message?.content;
     if (!story) throw new Error('No story generated');
 
-    // Return direct Pollinations URL with randomized seed
+    // Use our new image proxy for maximum reliability
     const seed = Math.floor(Math.random() * 9999999);
     const prompt = "pixel art fantasy dungeon entrance, mysterious stone gate, glowing runes, retro RPG style, highly detailed";
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=768&height=768&seed=${seed}&nologo=true`;
+    const imageUrl = `/api/image-proxy?prompt=${encodeURIComponent(prompt)}&seed=${seed}`;
 
-    logger.info('Generated start adventure image URL', { imageUrl });
+    logger.info('Generated start adventure with proxy image', { imageUrl });
 
     return NextResponse.json({
       success: true,
