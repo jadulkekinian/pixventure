@@ -28,6 +28,8 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
     const [voiceStyle, setVoiceStyle] = useState<VoiceStyle>('narrator');
     const [currentCharIndex, setCurrentCharIndex] = useState(-1);
     const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const activeWordRef = useRef<HTMLSpanElement>(null);
 
     const currentScene = propScene !== undefined ? propScene : storeScene;
     const isTyping = propIsTyping !== undefined ? propIsTyping : storeIsTyping;
@@ -41,7 +43,6 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
         let globalIndex = 0;
 
         return paraStrings.map((paraStr, pIdx) => {
-            // Include trailing newlines in index tracking except for the last para
             const actualParaStr = paraStr + (pIdx < paraStrings.length - 1 ? '\n\n' : '');
             const regex = /(\s+)/;
             const parts = actualParaStr.split(regex);
@@ -60,6 +61,17 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
             return { words };
         });
     }, [currentScene]);
+
+    // Auto-scroll logic: scroll the active word into view
+    useEffect(() => {
+        if (isSpeaking && activeWordRef.current && scrollContainerRef.current) {
+            activeWordRef.current.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+            });
+        }
+    }, [currentCharIndex, isSpeaking]);
 
     useEffect(() => {
         return () => {
@@ -82,7 +94,6 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
         const utterance = new SpeechSynthesisUtterance(currentScene);
         utteranceRef.current = utterance;
 
-        // Match language
         if (language === 'id') utterance.lang = 'id-ID';
         else if (language === 'ja') utterance.lang = 'ja-JP';
         else utterance.lang = 'en-US';
@@ -169,8 +180,11 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
                 </div>
             </div>
 
-            {/* Story Text Area */}
-            <div className="p-6 md:p-10 min-h-[120px] relative">
+            {/* Story Text Area with Scroll Container */}
+            <div
+                ref={scrollContainerRef}
+                className="p-6 md:p-10 min-h-[150px] max-h-[450px] overflow-y-auto custom-scrollbar relative scroll-smooth"
+            >
                 {isTyping ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-6">
                         <div className="flex items-center gap-3">
@@ -192,9 +206,9 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
                         </span>
                     </div>
                 ) : paragraphs.length > 0 ? (
-                    <div className="relative z-10 space-y-8">
+                    <div className="relative z-10 space-y-12 pb-20">
                         {paragraphs.map((p, pIdx) => (
-                            <div key={pIdx} className="flex flex-wrap items-baseline gap-x-[0.3em] gap-y-1">
+                            <div key={pIdx} className="flex flex-wrap items-baseline gap-x-[0.3em] gap-y-2">
                                 {p.words.map((item, wIdx) => {
                                     const isHighlighted = isSpeaking && currentCharIndex >= item.start && currentCharIndex < item.end;
                                     const isSpoken = isSpeaking && currentCharIndex > item.end;
@@ -206,14 +220,15 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
                                     return (
                                         <motion.span
                                             key={wIdx}
-                                            initial={{ opacity: 0, y: 5 }}
+                                            ref={isHighlighted ? activeWordRef : null}
+                                            initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: Math.min((pIdx * 10 + wIdx) * 0.01, 1) }}
-                                            className={`text-lg md:text-2xl font-pixel transition-all duration-300 leading-relaxed
+                                            className={`text-xl md:text-3xl font-pixel transition-all duration-300 leading-relaxed
                                                 ${isHighlighted
-                                                    ? 'text-yellow-400 scale-110 drop-shadow-[0_0_12px_rgba(250,204,21,0.9)] z-20'
+                                                    ? 'text-yellow-400 scale-110 drop-shadow-[0_0_15px_rgba(250,204,21,1)] z-20'
                                                     : isSpoken
-                                                        ? 'text-purple-200/60'
+                                                        ? 'text-purple-200/50'
                                                         : 'text-gray-100'
                                                 }
                                             `}
@@ -227,7 +242,7 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
                                     <motion.span
                                         animate={{ opacity: [1, 0] }}
                                         transition={{ duration: 0.8, repeat: Infinity }}
-                                        className="inline-block w-3 h-7 bg-purple-400 ml-1 shadow-[0_0_15px_#a855f7] align-middle"
+                                        className="inline-block w-4 h-8 bg-purple-400 ml-2 shadow-[0_0_20px_#a855f7] align-middle"
                                     />
                                 )}
                             </div>
@@ -245,9 +260,6 @@ export function CurrentScene({ currentScene: propScene, isTyping: propIsTyping, 
                 {/* Decorative Elements */}
                 <div className="absolute inset-0 pointer-events-none opacity-[0.05] overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-[1px] bg-purple-400 animate-[scanline_15s_linear_infinite]" />
-                    <pre className="font-mono text-[10px] leading-tight p-4 select-none">
-                        {Array(30).fill("SYSTEM_NARRATIVE_STREAM_0x" + Math.random().toString(16).substring(2, 8)).join("\n")}
-                    </pre>
                 </div>
             </div>
         </Card>
