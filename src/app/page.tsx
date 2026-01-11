@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '@/hooks/use-game-store';
 import { useAdventureAPI } from '@/hooks/use-adventure-api';
@@ -8,7 +8,7 @@ import { useJDKUser } from '@/hooks/use-jdk-user';
 import { useAdventurePersistence } from '@/hooks/use-adventure-persistence';
 import { translations } from '@/lib/translations';
 import { logger } from '@/lib/logger';
-import { RefreshCw, AlertCircle, ExternalLink } from 'lucide-react';
+import { RefreshCw, AlertCircle } from 'lucide-react';
 
 // Modular Components
 import { StartScreen } from '@/components/StartScreen';
@@ -17,7 +17,6 @@ import { CurrentScene } from '@/components/CurrentScene';
 import { CommandInput } from '@/components/CommandInput';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { Button } from '@/components/ui/button';
-
 
 export default function PixVentureGame() {
   const {
@@ -41,7 +40,6 @@ export default function PixVentureGame() {
 
   const [adventureId, setAdventureId] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
-  const [imageRetryCount, setImageRetryCount] = useState(0);
 
   const t = translations[language];
 
@@ -172,23 +170,27 @@ export default function PixVentureGame() {
     }
   };
 
-  const handleRetryImage = () => {
-    // With Base64, a simple state reset might help if it failed to render
-    // but usually a full command retry is needed. 
-    // For now, we'll just try to clear and re-set the state.
-    if (sceneImage) {
-      updateGameState({ isGeneratingImage: true });
-      setImageError(false);
-      // Re-triggering the same image might not help much with Base64
-      // unless it was a transient rendering issue.
-      setTimeout(() => updateGameState({ isGeneratingImage: false }), 500);
-    } else {
-      // If no image, try starting over or sending last command
+  const regenerateVision = useCallback(() => {
+    // Re-trigger the start or last action to get a new image
+    if (logs.length <= 1) {
       handleStart();
+    } else {
+      // Find the last command sent
+      const lastCommandLog = [...logs].reverse().find(l => l.type === 'command');
+      if (lastCommandLog) {
+        handleCommand(lastCommandLog.content.replace('> ', ''));
+      } else {
+        handleStart();
+      }
     }
+  }, [logs, currentScene, language]);
+
+  const handleRetryImage = () => {
+    updateGameState({ isGeneratingImage: true });
+    setImageError(false);
+    // Short delay to reset state and attempt re-render
+    setTimeout(() => updateGameState({ isGeneratingImage: false }), 500);
   };
-
-
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-pixel selection:bg-yellow-400 selection:text-black">
@@ -214,18 +216,24 @@ export default function PixVentureGame() {
             key="game-screen"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col h-screen max-w-7xl mx-auto p-4 md:p-6"
+            className="flex flex-col min-h-screen max-w-7xl mx-auto p-4 md:p-6"
           >
             {/* Header */}
-            <header className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+            <header className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12 gap-6">
               <div className="flex items-center gap-3">
-                <span className="text-3xl md:text-4xl">⚔️</span>
-                <h1 className="text-2xl md:text-4xl font-bold text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]">
+                <motion.span
+                  animate={{ rotate: [0, -10, 10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="text-3xl md:text-5xl"
+                >
+                  ⚔️
+                </motion.span>
+                <h1 className="text-2xl md:text-5xl font-bold text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.4)] tracking-tighter">
                   PixVenture
                 </h1>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6">
                 {user && (
                   <div className="hidden md:flex flex-col items-end">
                     <span className="text-[10px] text-slate-500 uppercase tracking-widest">Player</span>
@@ -237,7 +245,7 @@ export default function PixVentureGame() {
                   variant="outline"
                   size="sm"
                   onClick={resetGame}
-                  className="bg-red-950/20 border-red-900/50 text-red-400 hover:bg-red-900/40 text-[10px]"
+                  className="bg-red-950/20 border-red-900/50 text-red-400 hover:bg-red-800/40 text-[10px] font-pixel"
                 >
                   QUIT
                 </Button>
@@ -245,90 +253,100 @@ export default function PixVentureGame() {
             </header>
 
             {/* Main Content Area */}
-            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0 mb-32 md:mb-40 pb-10">
+            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0 mb-32 md:mb-48 pb-10">
               {/* Left Column: Visuals & Story */}
-              <div className="lg:col-span-8 flex flex-col gap-6 min-h-0">
-                <div className="flex-shrink-0 relative aspect-video rounded-xl overflow-hidden border-4 border-yellow-400/20 bg-slate-900 shadow-2xl">
+              <div className="lg:col-span-8 flex flex-col gap-10 min-h-0">
+                <div className="flex-shrink-0 relative aspect-video rounded-xl overflow-hidden border-4 border-yellow-400/20 bg-slate-900 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
                   {sceneImage && !imageError ? (
-                    <img
-                      key={sceneImage}
-                      src={sceneImage}
-                      alt="Current Scene"
-                      className={`w-full h-full object-cover transition-opacity duration-1000 ${isGeneratingImage ? 'opacity-40' : 'opacity-100'}`}
-                      onLoad={() => {
-                        console.log('Image Vision Loaded:', typeof sceneImage === 'string' ? sceneImage.substring(0, 50) + '...' : 'Data');
-                        updateGameState({ isGeneratingImage: false });
-                      }}
-                      onError={(e) => {
-                        console.error('Image Vision Error:', sceneImage);
-                        setImageError(true);
-                        updateGameState({ isGeneratingImage: false });
-                      }}
-                    />
+                    <>
+                      <img
+                        key={sceneImage}
+                        src={sceneImage}
+                        alt="Current Scene"
+                        className={`w-full h-full object-cover transition-opacity duration-[2000ms] ${isGeneratingImage ? 'opacity-40' : 'opacity-100'}`}
+                        onLoad={() => {
+                          console.log('Image Vision Loaded:', typeof sceneImage === 'string' ? sceneImage.substring(0, 50) + '...' : 'Data');
+                          updateGameState({ isGeneratingImage: false });
+                        }}
+                        onError={(e) => {
+                          console.error('Image Vision Error');
+                          setImageError(true);
+                          updateGameState({ isGeneratingImage: false });
+                        }}
+                      />
+                      {/* Action buttons on image */}
+                      {!isGeneratingImage && (
+                        <div className="absolute bottom-4 right-4 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={handleRetryImage}
+                            className="bg-black/60 hover:bg-black/80 text-white/70 h-8 w-8 p-0 rounded-full border border-white/10"
+                            title="Flash Refresh"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-4 min-h-[200px]">
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-6 min-h-[250px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
                       {imageError ? (
-                        <>
-                          <AlertCircle className="w-12 h-12 text-red-500 animate-pulse" />
-                          <p className="text-xs font-pixel tracking-widest uppercase text-red-400">Vision Failed to Render</p>
-                          <div className="flex flex-col gap-2 scale-75 md:scale-100">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleRetryImage}
-                              className="border-yellow-400/50 text-yellow-400"
-                            >
-                              <RefreshCw className="w-3 h-3 mr-2" /> RETRY RENDERING
-                            </Button>
-                          </div>
-                        </>
+                        <div className="flex flex-col items-center text-center p-6">
+                          <AlertCircle className="w-16 h-16 text-red-500/50 mb-4 animate-pulse" />
+                          <p className="font-pixel text-sm text-red-400/80 mb-6 uppercase tracking-widest">Vision Faded</p>
+                          <Button
+                            onClick={regenerateVision}
+                            className="bg-red-900/30 hover:bg-red-800/50 text-red-200 border border-red-500/30 font-pixel text-xs py-5 px-8"
+                          >
+                            REGENERATE VISION
+                          </Button>
+                        </div>
                       ) : (
-                        <>
-                          <span className="text-6xl animate-pulse">🖼️</span>
-                          <p className="text-xs font-pixel tracking-widest uppercase">Waiting for vision...</p>
-                        </>
+                        <div className="flex flex-col items-center gap-6">
+                          <div className="relative w-20 h-20">
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                              className="absolute inset-0 border-t-2 border-yellow-500/40 rounded-full"
+                            />
+                            <motion.div
+                              animate={{ rotate: -360 }}
+                              transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+                              className="absolute inset-2 border-b-2 border-purple-500/30 rounded-full"
+                            />
+                            <RefreshCw className="absolute inset-0 m-auto w-8 h-8 text-yellow-500/50 animate-pulse" />
+                          </div>
+                          <p className="font-pixel text-[10px] tracking-[0.5em] text-yellow-500/50 animate-pulse uppercase">Weaving Visuals...</p>
+                        </div>
                       )}
                     </div>
                   )}
 
-                  {isGeneratingImage && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                      <div className="text-center">
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                          className="text-4xl mb-4"
-                        >
-                          🌀
-                        </motion.div>
-                        <p className="text-[10px] font-pixel text-yellow-400 animate-pulse">GENERATING VISION...</p>
-                      </div>
+                  {/* Overlay for generation */}
+                  {isGeneratingImage && sceneImage && !imageError && (
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                      <p className="font-pixel text-[10px] text-yellow-400 tracking-widest animate-pulse">UPDATING VISION...</p>
                     </div>
                   )}
-
-                  {sceneImage && !isGeneratingImage && !imageError && (
-                    <button
-                      onClick={handleRetryImage}
-                      className="absolute bottom-2 right-2 p-2 bg-black/50 hover:bg-black/80 rounded-full border border-white/10 transition-colors"
-                      title="Regenerate Vision"
-                    >
-                      <RefreshCw className="w-4 h-4 text-white/50" />
-                    </button>
-                  )}
                 </div>
-                <CurrentScene />
+
+                {/* Story Display */}
+                <div className="flex flex-col gap-6">
+                  <CurrentScene />
+                </div>
               </div>
 
               {/* Right Column: Adventure Log */}
-              <div className="lg:col-span-4 min-h-0">
+              <div className="lg:col-span-4 flex flex-col min-h-[300px] lg:min-h-0">
                 <AdventureLog />
               </div>
             </main>
 
             {/* Fixed Footer: Command Input */}
-            <footer className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent z-50">
-              <div className="max-w-4xl mx-auto">
-                <CommandInput onSend={handleCommand} />
+            <footer className="fixed bottom-0 left-0 right-0 p-4 md:p-8 bg-gradient-to-t from-slate-950 via-slate-950 to-transparent z-50">
+              <div className="max-w-4xl mx-auto drop-shadow-[0_0_30px_rgba(0,0,0,0.8)]">
+                <CommandInput onSend={handleCommand} isDisabled={isTyping} />
               </div>
             </footer>
           </motion.div>
@@ -343,13 +361,13 @@ export default function PixVentureGame() {
         .scanline {
           width: 100%;
           height: 2px;
-          background: rgba(250, 204, 21, 0.05);
+          background: rgba(250, 204, 21, 0.03);
           position: fixed;
           top: 0;
           left: 0;
           z-index: 100;
           pointer-events: none;
-          animation: scanline 8s linear infinite;
+          animation: scanline 12s linear infinite;
         }
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
@@ -358,11 +376,11 @@ export default function PixVentureGame() {
           background: rgba(0, 0, 0, 0.2);
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(250, 204, 21, 0.2);
+          background: rgba(168, 85, 247, 0.2);
           border-radius: 3px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(250, 204, 21, 0.4);
+          background: rgba(168, 85, 247, 0.4);
         }
       `}</style>
       <div className="scanline" />
