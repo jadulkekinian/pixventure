@@ -144,7 +144,7 @@ export default function PixVentureGame() {
 
     if (data) {
       updateGameState({
-        currentScene: data.story,
+        currentScene: data.story || '',
         sceneImage: data.imageUrl || '',
         isTyping: false,
         isGeneratingImage: !!data.imageUrl
@@ -152,7 +152,7 @@ export default function PixVentureGame() {
 
       addLog({
         type: 'story',
-        content: data.story,
+        content: data.story || '',
         timestamp: new Date()
       });
 
