@@ -73,39 +73,37 @@ PENTING: Anda menulis permainan petualangan teks. Jangan sertakan komentar meta 
   },
 };
 
-// Generate image using Hugging Face Inference API
-async function generateImageWithHuggingFace(prompt: string, hfToken: string): Promise<string | null> {
+// Generate image using Together AI (FLUX Schnell - FREE)
+async function generateImageWithTogetherAI(prompt: string, togetherApiKey: string): Promise<string | null> {
   try {
-    const response = await fetch(
-      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${hfToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            num_inference_steps: 25,
-            guidance_scale: 7.5,
-          },
-        }),
-      }
-    );
+    const response = await fetch('https://api.together.xyz/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${togetherApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'black-forest-labs/FLUX.1-schnell-Free',
+        prompt: prompt,
+        width: 1024,
+        height: 1024,
+        steps: 4,
+        n: 1,
+        response_format: 'b64_json',
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.warn('Hugging Face API error', { status: response.status, error: errorText });
+      logger.warn('Together AI API error', { status: response.status, error: errorText });
       return null;
     }
 
-    // Response is binary image data
-    const imageBuffer = await response.arrayBuffer();
-    const base64Image = Buffer.from(imageBuffer).toString('base64');
-    return base64Image;
+    const data = await response.json();
+    const base64Image = data.data?.[0]?.b64_json;
+    return base64Image || null;
   } catch (error) {
-    logger.warn('Failed to generate image with Hugging Face', { error });
+    logger.warn('Failed to generate image with Together AI', { error });
     return null;
   }
 }
@@ -122,7 +120,7 @@ export async function POST(request: NextRequest) {
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
     const groqApiKey = process.env.GROQ_API_KEY;
-    const hfToken = process.env.HUGGINGFACE_API_KEY;
+    const togetherApiKey = process.env.TOGETHER_API_KEY;
 
     if (!groqApiKey) {
       logger.error('GROQ_API_KEY is not configured');
@@ -141,7 +139,7 @@ export async function POST(request: NextRequest) {
     const groq = new Groq({ apiKey: groqApiKey });
 
     // Image prompt for pixel art style
-    const imagePrompt = 'pixel art fantasy dungeon entrance, ancient mysterious stone gate, glowing runes, torch light, retro RPG game scene, 16-bit graphics style, detailed environment, magical atmosphere';
+    const imagePrompt = 'pixel art fantasy dungeon entrance, ancient mysterious stone gate, glowing runes, torch light, retro RPG game scene, 16-bit graphics style, detailed environment, magical atmosphere, dark fantasy';
 
     // Generate story and image in parallel
     const [storyResult, imageResult] = await Promise.allSettled([
@@ -156,8 +154,8 @@ export async function POST(request: NextRequest) {
         max_tokens: 1024,
       }),
 
-      // 2. Generate image with Hugging Face (if token available)
-      hfToken ? generateImageWithHuggingFace(imagePrompt, hfToken) : Promise.resolve(null),
+      // 2. Generate image with Together AI (if API key available)
+      togetherApiKey ? generateImageWithTogetherAI(imagePrompt, togetherApiKey) : Promise.resolve(null),
     ]);
 
     // Handle story result
@@ -183,7 +181,11 @@ export async function POST(request: NextRequest) {
         imageUrl = `data:image/png;base64,${imageResult.value}`;
       }
     } else {
-      logger.warn('Image generation skipped or failed');
+      logger.warn('Image generation skipped or failed', {
+        hasApiKey: !!togetherApiKey,
+        status: imageResult.status,
+        reason: imageResult.status === 'rejected' ? imageResult.reason : 'no image data'
+      });
     }
 
     return NextResponse.json({
