@@ -72,29 +72,26 @@ PENTING: Anda menulis permainan petualangan teks. Jangan sertakan komentar meta 
   },
 };
 
-// Generate image using Pollinations.ai (Truly FREE, no keys needed)
-async function generateImageWithPollinations(prompt: string): Promise<string | null> {
+// Generate image using Pollinations.ai and return Base64
+async function generateImageBase64(prompt: string): Promise<string | null> {
   try {
-    // Simplified prompt for better results
-    const cleanPrompt = prompt.replace(/[^\w\s,]/gi, ''); // Remove special characters
+    const cleanPrompt = prompt.replace(/[^\w\s,]/gi, '');
     const seed = Math.floor(Math.random() * 1000000);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=768&height=768&seed=${seed}&nologo=true`;
 
-    // Using a more reliable pollinations endpoint format
-    // No model param = more stable default
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true`;
+    const response = await fetch(imageUrl);
+    if (!response.ok) return null;
 
-    // We fetch it on the server to make sure it exists, then return the URL
-    // Actually, returning the URL directly is fine, but let's make it a simple URL
-    return imageUrl;
+    const buffer = await response.arrayBuffer();
+    return `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
   } catch (error) {
-    logger.warn('Failed to generate image with Pollinations AI', { error });
+    logger.warn('Failed to generate image base64', { error });
     return null;
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse and validate request body
     const body = await request.json();
     const validatedData = startAdventureSchema.parse(body);
     const { language } = validatedData;
@@ -102,88 +99,38 @@ export async function POST(request: NextRequest) {
     logger.info('Starting new adventure', { language });
 
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
-
     const groqApiKey = process.env.GROQ_API_KEY;
+
     if (!groqApiKey) {
-      logger.error('GROQ_API_KEY is not configured');
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'AI service is not configured. Please add GROQ_API_KEY to your Vercel environment variables.',
-          story: 'As you move forward, the dungeon whispers secrets unknown... [DEMO MODE: Please configure GROQ_API_KEY for the full experience]',
-          imageUrl: '',
-        },
-        { status: 500 }
-      );
+      return NextResponse.json({ success: false, error: 'GROQ_API_KEY missing' }, { status: 500 });
     }
 
-    // Initialize Groq client
     const groq = new Groq({ apiKey: groqApiKey });
 
-    // Generate story with Groq
-    const storyResponse = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: lang.system },
-        { role: 'user', content: lang.user },
-      ],
-      temperature: 0.8,
-      max_tokens: 1024,
-    });
+    // Parallel execution
+    const [storyResponse, imageBase64] = await Promise.all([
+      groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: lang.system },
+          { role: 'user', content: lang.user },
+        ],
+        temperature: 0.8,
+        max_tokens: 1024,
+      }),
+      generateImageBase64('pixel art fantasy dungeon entrance, mysterious stone ruins, cinematic retro RPG style')
+    ]);
 
     const story = storyResponse.choices?.[0]?.message?.content;
-    if (!story) {
-      throw new AIGenerationError('No story content generated');
-    }
-
-    // Fixed prompt in English for the starting scene
-    const imagePrompt = 'pixel art, ancient stone dungeon entrance, glowing ruins, weathered vines, fantasy adventure RPG, 16-bit colors, retro game style, cinematic lighting';
-    const imageUrl = await generateImageWithPollinations(imagePrompt);
+    if (!story) throw new AIGenerationError('No story generated');
 
     return NextResponse.json({
       success: true,
       story,
-      imageUrl: imageUrl || '',
+      imageUrl: imageBase64 || '',
     });
   } catch (error: unknown) {
-    // Handle validation errors
-    if (error instanceof ValidationError) {
-      logger.warn('Validation error', { error: error.message });
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-          code: error.code,
-        },
-        { status: error.statusCode }
-      );
-    }
-
-    // Handle AI generation errors
-    if (error instanceof AIGenerationError) {
-      logger.error('AI generation failed', { error: error.message });
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-          story: 'You stand before an ancient stone dungeon entrance. Weathered vines climb the dark walls, and a mysterious blue light flickers from within. A weathered sign hangs nearby, but the words are worn away by time. The air is thick with the scent of adventure and danger. What do you do?',
-          imageUrl: '',
-        },
-        { status: 500 }
-      );
-    }
-
-    // Handle unknown errors
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error starting adventure', { error: errorMessage });
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Failed to start adventure: ${errorMessage}`,
-        story: 'You stand before an ancient stone dungeon entrance. Weathered vines climb the dark walls, and a mysterious blue light flickers from within. A weathered sign hangs nearby, but the words are worn away by time. The air is thick with the scent of adventure and danger. What do you do?',
-        imageUrl: '',
-      },
-      { status: 500 }
-    );
+    logger.error('Error starting adventure', { error });
+    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
   }
 }
