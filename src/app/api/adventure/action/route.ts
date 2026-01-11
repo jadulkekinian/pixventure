@@ -5,6 +5,8 @@ import { ValidationError, AIGenerationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { saveBase64Image } from '@/lib/image-utils';
 
+export const maxDuration = 60; // Allow 60 seconds for AI generation
+
 const languageInstructions = {
   en: {
     system: `You are a creative adventure game dungeon master running an immersive fantasy text adventure game.
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest) {
     // Manual instantiation to bypass the problematic loadConfig() file check
     const zai = new ZAI({
       apiKey: zaiApiKey,
-      baseUrl: process.env.ZAI_BASE_URL || 'https://api.z-ai.cn/v1'
+      baseUrl: process.env.ZAI_BASE_URL || 'https://api.z.ai/v1'
     });
 
     // Generate story and image in parallel for better performance
