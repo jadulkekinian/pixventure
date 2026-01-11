@@ -248,7 +248,7 @@ export default function PixVentureGame() {
             <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0 mb-20 md:mb-24">
               {/* Left Column: Visuals & Story */}
               <div className="lg:col-span-8 flex flex-col gap-6 min-h-0">
-                <div className="relative aspect-video rounded-xl overflow-hidden border-4 border-yellow-400/20 bg-slate-900 shadow-2xl">
+                <div className="flex-shrink-0 relative aspect-video rounded-xl overflow-hidden border-4 border-yellow-400/20 bg-slate-900 shadow-2xl">
                   {sceneImage && !imageError ? (
                     <img
                       key={sceneImage}
@@ -256,7 +256,7 @@ export default function PixVentureGame() {
                       alt="Current Scene"
                       className={`w-full h-full object-cover transition-opacity duration-1000 ${isGeneratingImage ? 'opacity-40' : 'opacity-100'}`}
                       onLoad={() => {
-                        console.log('Image Vision Loaded:', sceneImage);
+                        console.log('Image Vision Loaded:', typeof sceneImage === 'string' ? sceneImage.substring(0, 50) + '...' : 'Data');
                         updateGameState({ isGeneratingImage: false });
                       }}
                       onError={(e) => {
@@ -266,7 +266,7 @@ export default function PixVentureGame() {
                       }}
                     />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-4">
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-4 min-h-[200px]">
                       {imageError ? (
                         <>
                           <AlertCircle className="w-12 h-12 text-red-500 animate-pulse" />
