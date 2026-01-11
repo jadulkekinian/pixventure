@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { actionRequestSchema } from '@/lib/validation';
-import { ValidationError, AIGenerationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import Groq from 'groq-sdk';
 
-export const maxDuration = 60; // Allow 60 seconds for AI generation
+export const maxDuration = 60;
 
 const languageInstructions = {
   en: { system: "You are a creative dungeon master. Respond to player actions in a fantasy world." },
@@ -23,7 +22,7 @@ export async function POST(request: NextRequest) {
     const groq = new Groq({ apiKey: groqApiKey });
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
-    // Parallel: Story + English translation for better image prompt
+    // Parallel: Story + English translation
     const [storyResult, translationResult] = await Promise.all([
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
@@ -46,12 +45,23 @@ export async function POST(request: NextRequest) {
     const story = storyResult.choices?.[0]?.message?.content;
     const keywords = (translationResult.choices?.[0]?.message?.content || command).replace(/[^a-zA-Z0-9, ]/g, '').trim();
 
-    // Use our internal image proxy
+    // Generate image and convert to Base64
     const seed = Math.floor(Math.random() * 9999999);
     const prompt = `pixel art fantasy, ${keywords}, retro RPG scene, detailed`;
-    const imageUrl = `/api/image-proxy?prompt=${encodeURIComponent(prompt)}&seed=${seed}`;
+    const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true`;
 
-    logger.info('Generated action adventure with proxy image', { imageUrl, keywords });
+    let imageUrl = '';
+    try {
+      const imgRes = await fetch(pollUrl);
+      if (imgRes.ok) {
+        const buffer = await imgRes.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        imageUrl = `data:${imgRes.headers.get('content-type') || 'image/jpeg'};base64,${base64}`;
+      }
+    } catch (e) {
+      logger.error('Base64 image generation failed', { error: e });
+      imageUrl = pollUrl; // Fallback
+    }
 
     return NextResponse.json({
       success: true,

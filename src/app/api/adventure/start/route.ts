@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { startAdventureSchema } from '@/lib/validation';
-import { ValidationError, AIGenerationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import Groq from 'groq-sdk';
 
-export const maxDuration = 60; // Allow 60 seconds for AI generation
+export const maxDuration = 60;
 
 const languageInstructions = {
   en: {
-    system: "You are a creative dungeon master for a fantasy text adventure. Create an immersive opening scene.",
+    system: "You are a creative dungeon master. Respond to player actions in a fantasy world.",
     user: "Start a fantasy adventure. The player is at the entrance of a mysterious ancient dungeon.",
   },
   id: {
-    system: "Anda adalah dungeon master kreatif untuk petualangan teks fantasi. Buat adegan pembuka yang imersif.",
+    system: "Anda adalah dungeon master kreatif. Respon aksi pemain di dunia fantasi.",
     user: "Mulai petualangan fantasi. Pemain berada di depan pintu masuk dungeon kuno yang misterius.",
   },
   ja: {
-    system: "あなたはファンタジーテキストアドベンチャーのダンジョンマスターです。没入感のあるオープニングシーンを作成してください。",
+    system: "あなたは創造的なダンジョンマスターです。プレイヤーの行動に応答してください。",
     user: "ファンタジーアドベンチャーを開始します。プレイヤーは謎めいた古代のダンジョンの入り口にいます。",
   },
 };
@@ -45,12 +44,24 @@ export async function POST(request: NextRequest) {
     const story = storyResponse.choices?.[0]?.message?.content;
     if (!story) throw new Error('No story generated');
 
-    // Use our new image proxy for maximum reliability
+    // Generate image and convert to Base64
     const seed = Math.floor(Math.random() * 9999999);
     const prompt = "pixel art fantasy dungeon entrance, mysterious stone gate, glowing runes, retro RPG style, highly detailed";
-    const imageUrl = `/api/image-proxy?prompt=${encodeURIComponent(prompt)}&seed=${seed}`;
+    const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true`;
 
-    logger.info('Generated start adventure with proxy image', { imageUrl });
+    let imageUrl = '';
+    try {
+      const imgRes = await fetch(pollUrl);
+      if (imgRes.ok) {
+        const buffer = await imgRes.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        imageUrl = `data:${imgRes.headers.get('content-type') || 'image/jpeg'};base64,${base64}`;
+      }
+    } catch (e) {
+      logger.error('Base64 image generation failed', { error: e });
+      // Fallback to direct URL if base64 fails
+      imageUrl = pollUrl;
+    }
 
     return NextResponse.json({
       success: true,
