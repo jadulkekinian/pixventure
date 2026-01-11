@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'glm-4', // Standard model
+          model: 'glm-4-flash', // Verified model ID
           messages: [
             { role: 'assistant', content: lang.system },
             { role: 'user', content: lang.user },
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'cogview-3', // Reliable image model
+          model: 'cogview-3-plus', // Verified image model ID
           prompt: `${imagePromptPreview}. Detailed game environment, magical atmosphere, cinematic view, game screenshot style, vibrant colors, ${langCode} text, digital art`,
           size: '1024x1024' // Standard size
         }),
