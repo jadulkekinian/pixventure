@@ -21,23 +21,28 @@ const languageInstructions = {
 };
 
 /**
- * Robust Image Fetcher with Retries, Extended Timeouts, and Placeholders
+ * Robust Image Fetcher with gen.pollinations.ai Gateway
  */
 async function fetchImageAsBase64(prompt: string, seed: number): Promise<string> {
-  // Use a faster model (flux-schnell if available, but default is flux usually)
-  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true`;
+  const apiKey = process.env.POLLINATIONS_API_KEY;
+  // Official gateway endpoint
+  const pollUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
 
   let attempts = 0;
-  const maxAttempts = 2; // Reduced attempts but longer timeout per attempt
+  const maxAttempts = 2;
 
   while (attempts < maxAttempts) {
     try {
-      logger.info(`Fetching image (Attempt ${attempts + 1})`, { prompt, seed });
+      logger.info(`Fetching image gateway (Attempt ${attempts + 1})`, { prompt, seed, hasKey: !!apiKey });
 
-      // Increased timeout to 40 seconds to give Pollinations more time
+      const headers: Record<string, string> = { 'Accept': 'image/*' };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
       const res = await fetch(pollUrl, {
         signal: AbortSignal.timeout(40000),
-        headers: { 'Accept': 'image/*' }
+        headers
       });
 
       if (res.ok) {
@@ -45,19 +50,13 @@ async function fetchImageAsBase64(prompt: string, seed: number): Promise<string>
         if (contentType.includes('image')) {
           const buffer = await res.arrayBuffer();
           const base64 = Buffer.from(buffer).toString('base64');
-          const dataUri = `data:${contentType};base64,${base64}`;
-
-          logger.info(`Pollinations success (Attempt ${attempts + 1})`, {
-            size: dataUri.length,
-            type: contentType
-          });
-          return dataUri;
+          return `data:${contentType};base64,${base64}`;
         }
       }
 
-      logger.warn(`Pollinations attempt ${attempts + 1} failed status ${res.status}`);
+      logger.warn(`Pollinations gateway attempt ${attempts + 1} failed status ${res.status}`);
     } catch (e: any) {
-      logger.warn(`Pollinations attempt ${attempts + 1} timeout or error`, { error: e.message });
+      logger.warn(`Pollinations gateway attempt ${attempts + 1} error`, { error: e.message });
     }
 
     attempts++;
@@ -66,9 +65,6 @@ async function fetchImageAsBase64(prompt: string, seed: number): Promise<string>
     }
   }
 
-  // FINAL FALLBACK: Return a high-quality placeholder if AI fails
-  // This ensures the game never breaks.
-  logger.error('All image attempts failed, using placeholder fallback');
   return `https://placehold.co/512x512/1e293b/facc15?text=Vision+Faded+Try+Action`;
 }
 
@@ -84,9 +80,8 @@ export async function POST(request: NextRequest) {
     const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.en;
 
     const seed = Math.floor(Math.random() * 9999999);
-    const imagePrompt = "pixel art fantasy dungeon entrance, mysterious stone gate, glowing runes, retro RPG style, highly detailed";
+    const imagePrompt = "pixel art fantasy dungeon entrance, mysterious stone gate, glowing runes, retro RPG style, highly detailed, vivid colors";
 
-    // Run parallel: Story + Image
     const [storyResult, imageResult] = await Promise.allSettled([
       groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
@@ -120,7 +115,7 @@ export async function POST(request: NextRequest) {
       imageUrl,
     });
   } catch (error: unknown) {
-    logger.error('Start adventure fatal error', { error });
+    logger.error('Start adventure gateway error', { error });
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

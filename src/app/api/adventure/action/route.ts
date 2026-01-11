@@ -12,21 +12,27 @@ const languageInstructions = {
 };
 
 /**
- * Robust Image Fetcher with Retries and Fallbacks
+ * Robust Image Fetcher with gen.pollinations.ai Gateway
  */
 async function fetchImageAsBase64(prompt: string, seed: number): Promise<string> {
-  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true`;
+  const apiKey = process.env.POLLINATIONS_API_KEY;
+  const pollUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
 
   let attempts = 0;
   const maxAttempts = 2;
 
   while (attempts < maxAttempts) {
     try {
-      logger.info(`Fetching image for action (Attempt ${attempts + 1})`, { prompt, seed });
+      logger.info(`Fetching action image gateway (Attempt ${attempts + 1})`, { prompt, seed, hasKey: !!apiKey });
+
+      const headers: Record<string, string> = { 'Accept': 'image/*' };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
 
       const res = await fetch(pollUrl, {
-        signal: AbortSignal.timeout(40000), // Increased timeout
-        headers: { 'Accept': 'image/*' }
+        signal: AbortSignal.timeout(40000),
+        headers
       });
 
       if (res.ok) {
@@ -38,7 +44,7 @@ async function fetchImageAsBase64(prompt: string, seed: number): Promise<string>
         }
       }
     } catch (e: any) {
-      logger.warn(`Pollinations action attempt ${attempts + 1} failed or timed out`, { error: e.message });
+      logger.warn(`Pollinations action gateway attempt ${attempts + 1} failed`, { error: e.message });
     }
     attempts++;
     if (attempts < maxAttempts) {
@@ -46,8 +52,6 @@ async function fetchImageAsBase64(prompt: string, seed: number): Promise<string>
     }
   }
 
-  // High quality placeholder fallback
-  logger.error('All action image attempts failed, using placeholder');
   return `https://placehold.co/512x512/1e293b/facc15?text=Vision+Faded+Continue`;
 }
 
@@ -86,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (storyResult.status === 'fulfilled') {
       story = storyResult.value.choices?.[0]?.message?.content || '';
     } else {
-      logger.error('Story continuation failed', { error: storyResult.reason });
+      logger.error('Story continuation gateway transition failed', { error: storyResult.reason });
       throw new Error('Failed to continue story');
     }
 
@@ -95,9 +99,8 @@ export async function POST(request: NextRequest) {
       keywords = (translationResult.value.choices?.[0]?.message?.content || command).replace(/[^a-zA-Z0-9, ]/g, '').trim();
     }
 
-    // Phase 2: Generate Image using keywords (Resilient)
     const seed = Math.floor(Math.random() * 9999999);
-    const imagePrompt = `pixel art fantasy, ${keywords}, retro RPG scene, detailed`;
+    const imagePrompt = `pixel art fantasy, ${keywords}, retro RPG scene, highly detailed`;
     const imageResult = await fetchImageAsBase64(imagePrompt, seed);
 
     return NextResponse.json({
@@ -106,7 +109,7 @@ export async function POST(request: NextRequest) {
       imageUrl: imageResult,
     });
   } catch (error: unknown) {
-    logger.error('Action fatal error', { error });
+    logger.error('Action gateway fatal error', { error });
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
