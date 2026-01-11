@@ -20,14 +20,23 @@ import { Button } from '@/components/ui/button';
 
 export default function PixVentureGame() {
   const {
-    gameState,
-    setGameState,
+    isGameStarted,
+    currentScene,
+    sceneImage,
+    logs,
+    isTyping,
+    isGeneratingImage,
+    updateGameState,
     addLog,
     setLanguage,
-    setGameStarted,
+    setIsGameStarted,
     resetGame,
     language
   } = useGameStore();
+
+  const setGameState = updateGameState;
+  const gameState = { isGameStarted, currentScene, sceneImage, logs, isTyping, isGeneratingImage };
+
 
   const { startAdventure, processAction, isLoading: isApiLoading } = useAdventureAPI();
   const { user, isAuthenticated, isInIframe } = useJDKUser();
@@ -91,7 +100,7 @@ export default function PixVentureGame() {
         timestamp: new Date()
       });
 
-      setGameStarted(true);
+      setIsGameStarted(true);
 
       // Save to Supabase if user is logged in
       if (isAuthenticated && user) {

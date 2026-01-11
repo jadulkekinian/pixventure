@@ -8,13 +8,13 @@ import { Language } from '@/lib/translations';
 
 interface AdventureStore extends GameState {
     language: Language;
-    gameStarted: boolean;
+    isGameStarted: boolean; // Managed via GameState but explicitly included here for clarity if needed
     showStartScreen: boolean;
     inputValue: string;
 
     // Actions
     setLanguage: (language: Language) => void;
-    setGameStarted: (started: boolean) => void;
+    setIsGameStarted: (started: boolean) => void;
     setShowStartScreen: (show: boolean) => void;
     setInputValue: (value: string) => void;
     setCurrentScene: (scene: string) => void;
@@ -41,13 +41,12 @@ export const useGameStore = create<AdventureStore>((set) => ({
     // Initial state
     ...initialState,
     language: 'en',
-    gameStarted: false,
     showStartScreen: true,
     inputValue: '',
 
     // Actions
     setLanguage: (language) => set({ language }),
-    setGameStarted: (started) => set({ gameStarted: started }),
+    setIsGameStarted: (started) => set({ isGameStarted: started }),
     setShowStartScreen: (show) => set({ showStartScreen: show }),
     setInputValue: (value) => set({ inputValue: value }),
     setCurrentScene: (scene) => set({ currentScene: scene }),
@@ -70,7 +69,6 @@ export const useGameStore = create<AdventureStore>((set) => ({
     resetGame: () =>
         set({
             ...initialState,
-            gameStarted: false,
             showStartScreen: true,
             inputValue: '',
         }),
