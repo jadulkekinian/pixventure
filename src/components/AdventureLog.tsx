@@ -1,12 +1,4 @@
-'use client';
-
-import { motion } from 'framer-motion';
-import { Scroll } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { AdventureLogProps } from '@/lib/types';
-import { useRef, useEffect } from 'react';
-
-import { useRef, useEffect } from 'react';
+import { useRef, useState, KeyboardEvent } from 'react';
 import { useGameStore } from '@/hooks/use-game-store';
 import { translations as allTranslations } from '@/lib/translations';
 

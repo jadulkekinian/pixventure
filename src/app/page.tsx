@@ -38,12 +38,11 @@ export default function PixVentureGame() {
   const gameState = { isGameStarted, currentScene, sceneImage, logs, isTyping, isGeneratingImage };
 
 
-  const { startAdventure, processAction, isLoading: isApiLoading } = useAdventureAPI();
-  const { user, isAuthenticated, isInIframe } = useJDKUser();
+  const { startAdventure, sendCommand, isLoading: isApiLoading } = useAdventureAPI();
+  const { user, isAuthenticated } = useJDKUser();
   const { saveAdventure, saveScene, loadAdventure, isLoading: isDbLoading } = useAdventurePersistence();
 
   const [adventureId, setAdventureId] = useState<string | null>(null);
-  const [isResuming, setIsResuming] = useState(false);
 
   const t = translations[language];
 
@@ -56,13 +55,12 @@ export default function PixVentureGame() {
 
         if (existingAdventure && existingAdventure.adventure_scenes.length > 0) {
           logger.info('Found existing adventure, prompting to resume');
-          // For now, let's just auto-resume if it's the same language or just auto-resume anyway
           const lastScene = existingAdventure.adventure_scenes.sort((a, b) => b.scene_number - a.scene_number)[0];
 
           setAdventureId(existingAdventure.id);
           setLanguage(existingAdventure.language as any);
 
-          setGameState({
+          updateGameState({
             currentScene: lastScene.story_text,
             sceneImage: lastScene.image_url || '',
             logs: existingAdventure.adventure_scenes.map(s => ({
@@ -74,21 +72,21 @@ export default function PixVentureGame() {
             isGeneratingImage: false
           });
 
-          setGameStarted(true);
+          setIsGameStarted(true);
         }
       }
     }
 
     resumeSession();
-  }, [isAuthenticated, user, loadAdventure, setGameState, setLanguage, setGameStarted]);
+  }, [isAuthenticated, user, loadAdventure, updateGameState, setLanguage, setIsGameStarted]);
 
   const handleStart = async () => {
-    setGameState({ isTyping: true });
+    updateGameState({ isTyping: true });
 
     const data = await startAdventure(language);
 
     if (data) {
-      setGameState({
+      updateGameState({
         currentScene: data.story,
         sceneImage: data.imageUrl,
         isTyping: false
@@ -132,12 +130,12 @@ export default function PixVentureGame() {
       timestamp: new Date()
     });
 
-    setGameState({ isTyping: true, isGeneratingImage: true });
+    updateGameState({ isTyping: true, isGeneratingImage: true });
 
-    const data = await processAction(command, gameState.currentScene, language);
+    const data = await sendCommand(command, currentScene, language);
 
     if (data) {
-      setGameState({
+      updateGameState({
         currentScene: data.story,
         sceneImage: data.imageUrl,
         isTyping: false,
@@ -154,21 +152,21 @@ export default function PixVentureGame() {
       if (adventureId) {
         await saveScene({
           adventureId,
-          sceneNumber: gameState.logs.length + 1,
+          sceneNumber: logs.length + 1,
           storyText: data.story,
           imageUrl: data.imageUrl,
           command
         });
       }
     } else {
-      setGameState({ isTyping: false, isGeneratingImage: false });
+      updateGameState({ isTyping: false, isGeneratingImage: false });
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-pixel selection:bg-yellow-400 selection:text-black">
       <AnimatePresence mode="wait">
-        {!gameState.isGameStarted ? (
+        {!isGameStarted ? (
           <motion.div
             key="start-screen"
             initial={{ opacity: 0 }}
@@ -177,7 +175,7 @@ export default function PixVentureGame() {
             className="h-screen"
           >
             <StartScreen
-              onStart={handleStart}
+              onStartGame={handleStart}
               isLoading={isApiLoading || isDbLoading}
               username={user?.username}
             />
