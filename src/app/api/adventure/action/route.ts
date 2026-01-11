@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'glm-4',
+          model: 'glm-4-flash',
           messages: [
             { role: 'assistant', content: lang.system },
             {
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'cogview-3',
+          model: 'cogview-3-plus',
           prompt: `${imagePromptPreview}. Detailed game environment, magical atmosphere, cinematic view, game screenshot style, vibrant colors, ${langCode} text, digital art`,
           size: '1024x1024'
         }),
