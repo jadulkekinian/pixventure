@@ -42,7 +42,12 @@ async function fetchImageAsBase64(prompt: string, seed: number): Promise<string>
         if (contentType.includes('image')) {
           const buffer = await res.arrayBuffer();
           const base64 = Buffer.from(buffer).toString('base64');
-          return `data:${contentType};base64,${base64}`;
+          const dataUri = `data:${contentType};base64,${base64}`;
+          logger.info(`Pollinations success (Attempt ${attempts + 1})`, {
+            size: dataUri.length,
+            type: contentType
+          });
+          return dataUri;
         }
       }
 
