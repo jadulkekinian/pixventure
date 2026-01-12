@@ -23,6 +23,7 @@ import { QuickActions } from '@/components/QuickActions';
 import { EndingOverlay } from '@/components/EndingOverlay';
 import { CombatHUD } from '@/components/CombatHUD';
 import { MiniMap } from '@/components/MiniMap';
+import { DungeonLayout } from '@/components/DungeonLayout';
 
 export default function PixVentureGame() {
   const {
@@ -275,7 +276,7 @@ export default function PixVentureGame() {
   }, [logs, currentScene, language]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 font-pixel selection:bg-yellow-400 selection:text-black overflow-x-hidden">
+    <div className="min-h-screen bg-black text-slate-50 font-pixel selection:bg-yellow-400 selection:text-black overflow-hidden">
       <AnimatePresence mode="wait">
         {!isGameStarted ? (
           <motion.div
@@ -298,157 +299,34 @@ export default function PixVentureGame() {
             key="game-screen"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col min-h-screen max-w-7xl mx-auto p-4 md:p-6"
+            className="h-screen w-full flex flex-col"
           >
             <EndingOverlay />
 
-            {/* Header */}
-            <header className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12 gap-6 shrink-0">
-              <div className="flex items-center gap-3">
-                <motion.span
-                  animate={{ rotate: [0, -10, 10, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="text-3xl md:text-5xl"
-                >
-                  ⚔️
-                </motion.span>
-                <h1 className="text-2xl md:text-5xl font-bold text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.4)] tracking-tighter">
-                  PixVenture
-                </h1>
-              </div>
+            {/* Main Dungeon Layout */}
+            <div className="flex-1 relative">
+              <DungeonLayout />
 
-              <div className="flex items-center gap-6">
-                {user && (
-                  <div className="hidden md:flex flex-col items-end">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-widest">Player</span>
-                    <span className="text-sm text-yellow-200">{user.username}</span>
-                  </div>
-                )}
-                <LanguageSelector variant="compact" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={resetGame}
-                  className="bg-red-950/20 border-red-900/50 text-red-400 hover:bg-red-800/40 text-[10px] font-pixel"
-                >
-                  QUIT
-                </Button>
-              </div>
-            </header>
-
-            {/* Main Content Area - Wireframe Layout */}
-            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
-              {/* Left Column */}
-              <div className="lg:col-span-7 flex flex-col gap-4 min-h-0">
-                {/* Top Row: Stats + Inventory */}
-                <RPGStatsHUD />
-
-                {/* Image Panel */}
-                <motion.div
-                  animate={lastHpChange !== null && lastHpChange < 0 ? {
-                    x: [0, -10, 10, -10, 10, 0],
-                  } : {}}
-                  transition={{ duration: 0.4 }}
-                  className="bg-slate-900/60 border-2 border-slate-800 overflow-hidden backdrop-blur-md shadow-2xl relative shrink-0"
-                >
-                  {/* Combat Overlay */}
-                  <AnimatePresence>
-                    {activeEnemy && <CombatHUD />}
-                  </AnimatePresence>
-
-                  {/* Image Display */}
-                  <div className="aspect-[16/9] w-full bg-slate-950 relative overflow-hidden group">
-                    <AnimatePresence mode="wait">
-                      {sceneImage && !isGeneratingImage ? (
-                        <motion.div
-                          key={sceneImage}
-                          initial={{ opacity: 0, scale: 1.1 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 1 }}
-                          className="w-full h-full"
-                        >
-                          <img
-                            src={sceneImage}
-                            alt="Adventure vision"
-                            className="w-full h-full object-cover"
-                            onError={() => setImageError(true)}
-                          />
-                          {/* Time-based Tinting Overlay */}
-                          <div className={`absolute inset-0 pointer-events-none transition-colors duration-1000 ${timeOfDay === 'morning' ? 'bg-orange-500/5' :
-                            timeOfDay === 'afternoon' ? 'bg-transparent' :
-                              timeOfDay === 'evening' ? 'bg-orange-700/10' :
-                                'bg-indigo-950/20'
-                            }`} />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
-                        </motion.div>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          {imageError ? (
-                            <div className="flex flex-col items-center text-center p-6">
-                              <AlertCircle className="w-16 h-16 text-red-500/50 mb-4 animate-pulse" />
-                              <p className="font-pixel text-sm text-red-400/80 mb-6 uppercase tracking-widest">Vision Faded</p>
-                              <Button
-                                onClick={regenerateVision}
-                                className="bg-red-900/30 hover:bg-red-800/50 text-red-200 border border-red-500/30 font-pixel text-xs py-5 px-8"
-                              >
-                                REGENERATE VISION
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center gap-6">
-                              <div className="relative w-20 h-20">
-                                <motion.div
-                                  animate={{ rotate: 360 }}
-                                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                  className="absolute inset-0 border-t-2 border-yellow-500/40 rounded-full"
-                                />
-                                <motion.div
-                                  animate={{ rotate: -360 }}
-                                  transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                                  className="absolute inset-2 border-b-2 border-purple-500/30 rounded-full"
-                                />
-                                <RefreshCw className="absolute inset-0 m-auto w-8 h-8 text-yellow-500/50 animate-pulse" />
-                              </div>
-                              <p className="font-pixel text-[10px] tracking-[0.5em] text-yellow-500/50 animate-pulse uppercase">Weaving Visuals...</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
-
-                {/* Story Panel */}
-                <div className="bg-slate-900/60 border-2 border-slate-800 overflow-hidden backdrop-blur-md">
-                  <CurrentScene currentScene={currentScene} isTyping={isApiLoading} />
-                </div>
-
-                {/* Quick Actions & Input Section */}
-                <div className="w-full pb-4">
-                  <QuickActions
-                    actions={suggestedActions || []}
-                    onAction={handleCommand}
-                    disabled={isApiLoading || isTyping}
-                    isLoading={isApiLoading}
-                    isSafeZone={isSafeZone}
-                  />
+              {/* Overlay Input for Game */}
+              <div className="absolute bottom-4 left-0 right-0 px-4 z-50">
+                <div className="max-w-4xl mx-auto">
                   <CommandInput onSend={handleCommand} isDisabled={isApiLoading} />
                 </div>
               </div>
+            </div>
 
-              {/* Right Column: Log + Map */}
-              <div className="lg:col-span-5 flex flex-col gap-4 min-h-[300px] lg:min-h-0 mb-10">
-                {/* Log Panel */}
-                <div className="flex-1 min-h-[200px]">
-                  <AdventureLog />
-                </div>
-
-                {/* Map Panel */}
-                <div className="flex-1 min-h-[200px]">
-                  <MiniMap />
-                </div>
-              </div>
-            </main>
+            {/* Quick Actions Overlay - Optional, can be integrated into layout later */}
+            <div className="absolute top-4 right-4 z-50 flex gap-2">
+              <LanguageSelector variant="compact" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetGame}
+                className="bg-red-950/80 border-red-900/50 text-red-400 hover:bg-red-800/90 text-[10px] font-pixel backdrop-blur-sm"
+              >
+                QUIT
+              </Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

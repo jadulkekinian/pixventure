@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react';
 import { AdventureAPIResponse, ActionRequest, StartAdventureRequest } from '@/lib/types';
 import { Language } from '@/lib/translations';
 import { logger } from '@/lib/logger';
+import { useGameStore } from './use-game-store';
 
 export function useAdventureAPI() {
     const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +62,11 @@ export function useAdventureAPI() {
                     // For start, AI might set absolute values
                     if (rpgData.hp !== undefined) data.hpChange = rpgData.hp;
                 }
+            }
+
+            // Store dungeon map if present
+            if ((data as any).dungeonMap) {
+                useGameStore.getState().setDungeonMap((data as any).dungeonMap);
             }
 
             return data;

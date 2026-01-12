@@ -3,6 +3,7 @@ import { startAdventureSchema } from '@/lib/validation';
 import { logger } from '@/lib/logger';
 import Groq from 'groq-sdk';
 import { getStartTemplate, generatePlaceholderDataUrl } from '@/lib/story-templates';
+import { generateDungeon } from '@/lib/dungeon-generator';
 
 export const maxDuration = 60;
 
@@ -77,11 +78,15 @@ export async function POST(request: NextRequest) {
         const story = storyResult.value.choices?.[0]?.message?.content || '';
         const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1024&height=576&seed=${seed}&nologo=true&model=flux`;
 
+        // Generate dungeon map
+        const dungeonMap = generateDungeon(seed, 10);
+
         return NextResponse.json({
           success: true,
           story,
           imageUrl,
           source: 'ai', // Indicate this came from AI
+          dungeonMap, // Include dungeon map
         });
       } else {
         // API failed, use fallback
@@ -115,11 +120,15 @@ function useFallbackStart(language: string): NextResponse {
   // Try pollinations first, but with fallback keywords
   const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(template.imageKeywords + ', pixel art, retro RPG')}?width=1024&height=576&seed=${seed}&nologo=true&model=flux`;
 
+  // Generate dungeon map
+  const dungeonMap = generateDungeon(seed, 10);
+
   return NextResponse.json({
     success: true,
     story: template.story,
     imageUrl,
     source: 'template', // Indicate this is from template
     templateId: template.id,
+    dungeonMap, // Include dungeon map
   });
 }

@@ -11,6 +11,9 @@ export interface LogEntry {
     type: LogType;
     content: string;
     timestamp: Date;
+    command?: string;
+    hpChange?: number;
+    xpGain?: number;
 }
 
 // Game state

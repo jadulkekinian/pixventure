@@ -5,12 +5,14 @@
 import { create } from 'zustand';
 import { GameState, LogEntry } from '@/lib/types';
 import { Language } from '@/lib/translations';
+import { DungeonMap } from '@/lib/dungeon-generator';
 
 interface AdventureStore extends GameState {
     language: Language;
     isGameStarted: boolean; // Managed via GameState but explicitly included here for clarity if needed
     showStartScreen: boolean;
     inputValue: string;
+    dungeonMap: DungeonMap | null;
 
     // Actions
     setLanguage: (language: Language) => void;
@@ -24,6 +26,9 @@ interface AdventureStore extends GameState {
     setGeneratingImage: (isGenerating: boolean) => void;
     updateGameState: (state: Partial<GameState>) => void;
     resetGame: () => void;
+    setDungeonMap: (map: DungeonMap) => void;
+    moveToRoom: (roomId: string) => void;
+    revealRoom: (roomId: string) => void;
 }
 
 
@@ -56,6 +61,7 @@ export const useGameStore = create<AdventureStore>((set) => ({
     language: 'en',
     showStartScreen: true,
     inputValue: '',
+    dungeonMap: null,
 
     // Actions
     setLanguage: (language) => set({ language }),
@@ -84,6 +90,38 @@ export const useGameStore = create<AdventureStore>((set) => ({
             ...initialState,
             showStartScreen: true,
             inputValue: '',
+            dungeonMap: null,
+        }),
+
+    setDungeonMap: (map) => set({ dungeonMap: map }),
+
+    moveToRoom: (roomId) =>
+        set((state) => {
+            if (!state.dungeonMap) return state;
+
+            return {
+                dungeonMap: {
+                    ...state.dungeonMap,
+                    currentRoomId: roomId,
+                    rooms: state.dungeonMap.rooms.map((r) =>
+                        r.id === roomId ? { ...r, visited: true } : r
+                    ),
+                },
+            };
+        }),
+
+    revealRoom: (roomId) =>
+        set((state) => {
+            if (!state.dungeonMap) return state;
+
+            return {
+                dungeonMap: {
+                    ...state.dungeonMap,
+                    rooms: state.dungeonMap.rooms.map((r) =>
+                        r.id === roomId ? { ...r, visited: true } : r
+                    ),
+                },
+            };
         }),
 
 }));
