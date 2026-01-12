@@ -22,6 +22,7 @@ import { RPGStatsHUD } from '@/components/RPGStatsHUD';
 import { QuickActions } from '@/components/QuickActions';
 import { EndingOverlay } from '@/components/EndingOverlay';
 import { CombatHUD } from '@/components/CombatHUD';
+import { MiniMap } from '@/components/MiniMap';
 
 export default function PixVentureGame() {
   const {
@@ -335,20 +336,20 @@ export default function PixVentureGame() {
               </div>
             </header>
 
-            {/* Main Content Area */}
-            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-10 min-h-0">
-              {/* Left/Middle Column: Main Game */}
-              <div className="lg:col-span-8 flex flex-col gap-8 min-h-0">
-                {/* RPG HUD */}
+            {/* Main Content Area - Wireframe Layout */}
+            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
+              {/* Left Column */}
+              <div className="lg:col-span-7 flex flex-col gap-4 min-h-0">
+                {/* Top Row: Stats + Inventory */}
                 <RPGStatsHUD />
 
-                {/* Adventure Display Card */}
+                {/* Image Panel */}
                 <motion.div
                   animate={lastHpChange !== null && lastHpChange < 0 ? {
                     x: [0, -10, 10, -10, 10, 0],
                   } : {}}
                   transition={{ duration: 0.4 }}
-                  className="bg-slate-900/60 border-2 border-slate-800 rounded-2xl overflow-hidden backdrop-blur-md shadow-2xl relative shrink-0"
+                  className="bg-slate-900/60 border-2 border-slate-800 overflow-hidden backdrop-blur-md shadow-2xl relative shrink-0"
                 >
                   {/* Combat Overlay */}
                   <AnimatePresence>
@@ -415,15 +416,15 @@ export default function PixVentureGame() {
                       )}
                     </AnimatePresence>
                   </div>
-
-                  {/* Story Display */}
-                  <div className="p-8 md:p-12 border-t-2 border-slate-800/50 bg-slate-900/40 min-h-[200px]">
-                    <CurrentScene currentScene={currentScene} isTyping={isApiLoading} />
-                  </div>
                 </motion.div>
 
+                {/* Story Panel */}
+                <div className="bg-slate-900/60 border-2 border-slate-800 overflow-hidden backdrop-blur-md">
+                  <CurrentScene currentScene={currentScene} isTyping={isApiLoading} />
+                </div>
+
                 {/* Quick Actions & Input Section */}
-                <div className="w-full pb-10">
+                <div className="w-full pb-4">
                   <QuickActions
                     actions={suggestedActions || []}
                     onAction={handleCommand}
@@ -435,9 +436,17 @@ export default function PixVentureGame() {
                 </div>
               </div>
 
-              {/* Right Column: Adventure Log */}
-              <div className="lg:col-span-4 flex flex-col min-h-[300px] lg:min-h-0 mb-10">
-                <AdventureLog />
+              {/* Right Column: Log + Map */}
+              <div className="lg:col-span-5 flex flex-col gap-4 min-h-[300px] lg:min-h-0 mb-10">
+                {/* Log Panel */}
+                <div className="flex-1 min-h-[200px]">
+                  <AdventureLog />
+                </div>
+
+                {/* Map Panel */}
+                <div className="flex-1 min-h-[200px]">
+                  <MiniMap />
+                </div>
               </div>
             </main>
           </motion.div>

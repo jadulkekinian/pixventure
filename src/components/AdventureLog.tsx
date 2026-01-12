@@ -21,7 +21,7 @@ export function AdventureLog({ logs: propLogs, translations: propTranslations }:
     }, [logs]);
 
     return (
-        <Card className="lg:col-span-1 border-2 border-yellow-400/30 bg-black/80 overflow-hidden flex flex-col max-h-[500px] lg:max-h-[600px]">
+        <Card className="h-full border-2 border-yellow-400/30 bg-black/80 overflow-hidden flex flex-col">
             <div className="bg-gradient-to-r from-yellow-400/20 to-orange-400/20 p-3 border-b-2 border-yellow-400/30 flex items-center gap-2">
                 <Scroll className="w-5 h-5 text-yellow-400" />
                 <h2 className="text-yellow-400 font-bold tracking-wider font-pixel text-xs md:text-sm">

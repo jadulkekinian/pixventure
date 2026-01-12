@@ -8,8 +8,6 @@ import { z } from 'zod';
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-    // Add Z.ai API key if it's required
-    // Z_AI_API_KEY: z.string().min(1, 'Z_AI_API_KEY is required'),
 });
 
 // Validate environment variables
@@ -19,7 +17,7 @@ function validateEnv() {
     } catch (error: unknown) {
         if (error instanceof z.ZodError) {
             console.error('❌ Invalid environment variables:');
-            error.errors.forEach((err) => {
+            error.issues.forEach((err) => {
                 console.error(`  - ${err.path.join('.')}: ${err.message}`);
             });
             throw new Error('Environment validation failed');
