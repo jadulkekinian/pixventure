@@ -84,7 +84,9 @@ export function useAdventureAPI() {
         async (
             command: string,
             previousScene: string,
-            language: Language
+            language: Language,
+            currentRoomId?: string,
+            roomConnections?: string[]
         ): Promise<AdventureAPIResponse | null> => {
             setIsLoading(true);
             setError(null);
@@ -93,7 +95,13 @@ export function useAdventureAPI() {
                 const response = await fetch('/api/adventure/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ command, previousScene, language } as ActionRequest),
+                    body: JSON.stringify({
+                        command,
+                        previousScene,
+                        language,
+                        currentRoomId,
+                        roomConnections
+                    } as ActionRequest),
                 });
 
                 const data: AdventureAPIResponse = await response.json();
@@ -115,6 +123,7 @@ export function useAdventureAPI() {
                         data.timeOfDay = rpgData.time;
                         data.isSafeZone = !!rpgData.safe;
                         data.activeEnemy = rpgData.enemy || null;
+                        data.nextRoomId = rpgData.nextRoom;
                     }
                 }
 

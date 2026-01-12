@@ -17,6 +17,8 @@ export const actionRequestSchema = z.object({
     command: z.string().min(1, 'Command cannot be empty').max(500, 'Command too long'),
     previousScene: z.string(),
     language: languageSchema.default('en'),
+    currentRoomId: z.string().optional(),
+    roomConnections: z.array(z.string()).optional(),
 });
 
 // Export types

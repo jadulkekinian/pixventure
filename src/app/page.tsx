@@ -48,7 +48,9 @@ export default function PixVentureGame() {
     timeOfDay,
     isSafeZone,
     activeEnemy,
-    suggestedActions
+    suggestedActions,
+    dungeonMap,
+    moveToRoom
   } = useGameStore();
 
   const { startAdventure, sendCommand, isLoading: isApiLoading } = useAdventureAPI();
@@ -190,7 +192,11 @@ export default function PixVentureGame() {
     updateGameState({ isTyping: true, isGeneratingImage: true, lastHpChange: null, lastXpGain: null });
     setImageError(false);
 
-    const data = await sendCommand(command, currentScene || '', language);
+    // Get current room context
+    const currentRoomId = dungeonMap?.currentRoomId;
+    const roomConnections = dungeonMap?.rooms.find(r => r.id === currentRoomId)?.connections;
+
+    const data = await sendCommand(command, currentScene || '', language, currentRoomId, roomConnections);
 
     if (data && data.success) {
       if (data.hpChange !== undefined && data.hpChange < 0) playSfx('submit');
@@ -220,6 +226,12 @@ export default function PixVentureGame() {
         isSafeZone: !!data.isSafeZone,
         activeEnemy: data.activeEnemy || null
       });
+
+      // Handle room movement
+      if (data.nextRoomId) {
+        moveToRoom(data.nextRoomId);
+        playSfx('reveal');
+      }
 
       // Clear indicators after animation
       setTimeout(() => updateGameState({ lastHpChange: null, lastXpGain: null }), 2000);

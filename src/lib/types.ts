@@ -69,6 +69,7 @@ export interface AdventureAPIResponse {
         hp: number;
         maxHp: number;
     } | null;
+    nextRoomId?: string;
 }
 
 export interface StartAdventureRequest {
@@ -79,6 +80,8 @@ export interface ActionRequest {
     command: string;
     previousScene: string;
     language: Language;
+    currentRoomId?: string;
+    roomConnections?: string[];
 }
 
 // Component prop types

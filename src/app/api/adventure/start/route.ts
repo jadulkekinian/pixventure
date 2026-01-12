@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
             Use 2-3 short, punchy paragraphs with double newlines. Use vivid, cinematic descriptions.
             
             CRITICAL: Also include RPG metadata at the end in this EXACT format:
-            [[RPG:{"hpChange":0,"xpGain":0,"item":null,"actions":["Look around","Check pack","Walk"],"end":null,"day":1,"time":"morning","safe":true,"enemy":null}]]
+            [[RPG:{"hpChange":0,"xpGain":0,"item":null,"actions":["Look around","Check pack","Walk"],"end":null,"day":1,"time":"morning","safe":true,"enemy":null,"nextRoom":null}]]
             - 'hpChange': 0
             - 'day': 1
             - 'time': 'morning'

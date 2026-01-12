@@ -15,7 +15,7 @@ const languageInstructions = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { command, previousScene, language } = actionRequestSchema.parse(body);
+    const { command, previousScene, language, currentRoomId, roomConnections } = actionRequestSchema.parse(body);
 
     const groqApiKey = process.env.GROQ_API_KEY;
 
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
               role: 'system', content: lang.system + ` Use 1-2 short, punchy paragraphs with double newlines between them. Describe the result of the player's action.
             
             CRITICAL: Also include RPG metadata at the end in this EXACT format:
-            [[RPG:{"hpChange":-5,"xpGain":10,"item":"Torch","actions":["Go Up","Open Door","Rest"],"end":null,"day":1,"time":"morning","safe":false,"enemy":{"name":"Goblin","hp":20,"maxHp":20}}]]
+            [[RPG:{"hpChange":-5,"xpGain":10,"item":"Torch","actions":["Go Up","Open Door","Rest"],"end":null,"day":1,"time":"morning","safe":false,"enemy":{"name":"Goblin","hp":20,"maxHp":20},"nextRoom":"room_id"}]]
             - 'hpChange': - (damage), + (heal), or 0.
             - 'xpGain': number of XP earned.
             - 'item': name of item found or null.
@@ -51,6 +51,12 @@ export async function POST(request: NextRequest) {
             - 'time': 'morning', 'afternoon', 'evening', or 'night'.
             - 'safe': true if the location is safe (Shrine, Camp, Secure Room), else false.
             - 'enemy': {"name":"Monster Name","hp":number,"maxHp":number} if in combat, else null.
+            - 'nextRoom': The ID of the room the player MOVED TO (if action involves moving), else null.
+            
+            DUNGEON CONTEXT:
+            Current Room: ${currentRoomId || 'Unknown'}
+            Nearby Connected Rooms: ${roomConnections?.join(', ') || 'None'}
+            NAVIGATION: If the player wants to move or explore nearby areas, pick one of the connected rooms as their destination and set 'nextRoom' to its ID. Describe the transition.
             
             LOGIC GUARD: Reject impossible or anachronistic actions narratively. Explain why it failed and apply a small HP penalty for "mental strain" if the command is insane.
             
